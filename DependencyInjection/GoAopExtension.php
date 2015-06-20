@@ -31,9 +31,16 @@ class GoAopExtension extends Extension
      */
     public function load(array $config, ContainerBuilder $container)
     {
-        $configurator  = new Configuration();
-        $configOptions = $this->processConfiguration($configurator, $config);
-        $container->setParameter('goaop.options', $configOptions);
+        $configurator = new Configuration();
+        $config       = $this->processConfiguration($configurator, $config);
+
+        $normalizedOptions = array();
+        foreach ($config['options'] as $optionKey => $value) {
+            // this will convert 'under_scores' into 'underScores'
+            $optionKey = lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $optionKey))));
+            $normalizedOptions[$optionKey] = $value;
+        }
+        $container->setParameter('goaop.options', $normalizedOptions);
 
         $loader = new XmlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.xml');

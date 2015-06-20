@@ -32,47 +32,23 @@ class Configuration implements ConfigurationInterface
 
         $rootNode
             ->children()
-                ->scalarNode('features')
-//                    ->validate()
-//                    ->ifTrue(function ($v) use ($features) {
-//                        if (is_array($v)) {
-//                            foreach ($v as $featureName) {
-//                                $featureName = strtoupper($featureName);
-//                                if (!isset($features[$featureName])) {
-//                                    return true;
-//                                }
-//                            }
-//                        }
-//
-//                        return true;
-//                    })
-//                    ->thenInvalid('Invalid feature definition %s')
-//                    ->end()
-
-//                    ->beforeNormalization()
-//                        ->ifArray()
-//                        ->then(function ($v) use ($features) {
-//                            $featureMask = 0;
-//                            foreach ($v as $featureName) {
-//                                $featureName = strtoupper($featureName);
-//                                $featureMask += isset($features[$featureName]) ? $features[$featureName] : 0;
-//                            }
-//
-//                            return $featureMask;
-//                        })
-//                    ->end()
-                    ->defaultValue(AspectSymfonyKernel::getDefaultFeatures())
-                ->end()
-                ->scalarNode('appDir')->defaultValue('%kernel.root_dir%/../src')->end()
-                ->scalarNode('cacheDir')->defaultValue('%kernel.cache_dir%/aspect')->end()
-                ->scalarNode('cacheFileMode')->end()
-                ->booleanNode('debug')->defaultValue('%kernel.debug%')->end()
-                ->scalarNode('containerClass')->end()
-                ->arrayNode('includePaths')
-                    ->prototype('scalar')->end()
-                ->end()
-                ->arrayNode('excludePaths')
-                    ->prototype('scalar')->end()
+                ->arrayNode('options')
+                    ->children()
+                        ->scalarNode('features')
+                            ->defaultValue(AspectSymfonyKernel::getDefaultFeatures())
+                        ->end()
+                        ->scalarNode('app_dir')->defaultValue('%kernel.root_dir%/../src')->end()
+                        ->scalarNode('cache_dir')->defaultValue('%kernel.cache_dir%/aspect')->end()
+                        ->scalarNode('cache_file_mode')->end()
+                        ->booleanNode('debug')->defaultValue('%kernel.debug%')->end()
+                        ->scalarNode('container_class')->end()
+                        ->arrayNode('include_paths')
+                            ->prototype('scalar')->end()
+                        ->end()
+                        ->arrayNode('exclude_paths')
+                            ->prototype('scalar')->end()
+                        ->end()
+                    ->end()
                 ->end()
             ->end()
         ;
