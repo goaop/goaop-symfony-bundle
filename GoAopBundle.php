@@ -22,6 +22,12 @@ class GoAopBundle extends Bundle
      */
     public function build(ContainerBuilder $container)
     {
+        $bundles     = $container->getParameter('kernel.bundles');
+        $firstBundle = key($bundles);
+        if ($firstBundle !== $this->name) {
+            $message = "Please move the {$this->name} initialization to the top in your Kernel->init()";
+            throw new \InvalidArgumentException($message);
+        }
         $container->addCompilerPass(new AspectCollectorPass());
     }
 
