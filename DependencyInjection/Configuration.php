@@ -15,6 +15,7 @@ use Go\Aop\Features;
 use Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 
 class Configuration implements ConfigurationInterface
 {
@@ -35,6 +36,21 @@ class Configuration implements ConfigurationInterface
                 ->arrayNode('options')
                     ->children()
                         ->scalarNode('features')
+                            ->beforeNormalization()
+                                ->ifArray()
+                                ->then(function ($v) use ($features) {
+                                    $featureMask = 0;
+                                    foreach ($v as $featureName) {
+                                        $featureName = strtoupper($featureName);
+                                        if (!isset($features[$featureName])) {
+                                            throw new InvalidConfigurationException("Uknown feature: {$featureName}");
+                                        }
+                                        $featureMask += isset($features[$featureName]) ? $features[$featureName] : 0;
+                                    }
+
+                                    return $featureMask;
+                                })
+                            ->end()
                             ->defaultValue(AspectSymfonyKernel::getDefaultFeatures())
                         ->end()
                         ->scalarNode('app_dir')->defaultValue('%kernel.root_dir%/../src')->end()
