@@ -11,6 +11,7 @@
 namespace Go\Symfony\GoAopBundle;
 
 
+use Go\Instrument\ClassLoading\AopComposerLoader;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\AspectCollectorPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
@@ -28,6 +29,7 @@ class GoAopBundle extends Bundle
             $message = "Please move the {$this->name} initialization to the top in your Kernel->init()";
             throw new \InvalidArgumentException($message);
         }
+
         $container->addCompilerPass(new AspectCollectorPass());
     }
 
@@ -37,5 +39,8 @@ class GoAopBundle extends Bundle
     public function boot()
     {
         $this->container->get('goaop.aspect.container');
+        if (!AopComposerLoader::wasInitialized()) {
+            throw new \RuntimeException("Initialization of AOP loader was failed, probably due to Debug::enable()");
+        }
     }
 }
