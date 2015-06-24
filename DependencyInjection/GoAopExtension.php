@@ -44,5 +44,10 @@ class GoAopExtension extends Extension
 
         $loader = new XmlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.xml');
+
+        if ($config['cache_warmer']) {
+            $definition = $container->getDefinition('goaop.cache.warmer');
+            $definition->addTag('kernel.cache_warmer');
+        }
     }
 }

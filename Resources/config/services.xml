@@ -28,7 +28,6 @@
         <service id="goaop.cache.warmer" public="false" class="Go\Symfony\GoAopBundle\CacheWarmer\AspectCacheWarmer">
             <argument type="service" id="goaop.aspect.kernel"/>
             <argument type="service" id="goaop.cache.path.manager"/>
-            <tag name="kernel.cache_warmer"/>
         </service>
     </services>
 
