@@ -33,8 +33,9 @@ class Configuration implements ConfigurationInterface
 
         $rootNode
             ->children()
-            ->booleanNode('cache_warmer')->defaultFalse()->end()
+                ->booleanNode('cache_warmer')->defaultFalse()->end()
                 ->arrayNode('options')
+                    ->addDefaultsIfNotSet()
                     ->children()
                         ->scalarNode('features')
                             ->beforeNormalization()
