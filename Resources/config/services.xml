@@ -9,19 +9,22 @@
     </parameters>
 
     <services>
-        <service id="goaop.aspect.kernel" class="Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel">
-            <factory class="Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel" method="getInstance"/>
+        <service id="goaop.aspect.kernel" class="Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel"
+                 factory-class="Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel"
+                 factory-method="getInstance">
             <call method="init">
                 <argument>%goaop.options%</argument>
             </call>
         </service>
 
-        <service id="goaop.aspect.container" class="Go\Core\GoAspectContainer">
-            <factory service="goaop.aspect.kernel" method="getContainer"/>
+        <service id="goaop.aspect.container" class="Go\Core\GoAspectContainer"
+                factory-service="goaop.aspect.kernel"
+                factory-method="getContainer">
         </service>
 
-        <service id="goaop.cache.path.manager" public="false" class="Go\Instrument\ClassLoading\CachePathManager">
-            <factory service="goaop.aspect.container" method="get"/>
+        <service id="goaop.cache.path.manager" public="false" class="Go\Instrument\ClassLoading\CachePathManager"
+                factory-service="goaop.aspect.container"
+                factory-method="get">
             <argument type="string">aspect.cache.path.manager</argument>
         </service>
 
