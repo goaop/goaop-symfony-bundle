@@ -53,7 +53,7 @@ class Configuration implements ConfigurationInterface
                                     return $featureMask;
                                 })
                             ->end()
-                            ->defaultValue(AspectSymfonyKernel::getDefaultFeatures())
+                            ->defaultValue(0)
                         ->end()
                         ->scalarNode('app_dir')->defaultValue('%kernel.root_dir%/../src')->end()
                         ->scalarNode('cache_dir')->defaultValue('%kernel.cache_dir%/aspect')->end()

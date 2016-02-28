@@ -13,6 +13,8 @@ namespace Go\Symfony\GoAopBundle\Kernel;
 
 use Go\Core\AspectContainer;
 use Go\Core\AspectKernel;
+use Go\Instrument\ClassLoading\AopComposerLoader;
+use Symfony\Component\Debug\DebugClassLoader;
 
 class AspectSymfonyKernel extends AspectKernel
 {
@@ -25,5 +27,28 @@ class AspectSymfonyKernel extends AspectKernel
      */
     protected function configureAop(AspectContainer $container)
     {
+    }
+
+    /**
+     * Cache warmer in SF doesn't call Bundle::boot, so we need to duplicate this logic one more time
+     *
+     * @inheritDoc
+     */
+    public function init(array $options = [])
+    {
+        // it is a quick way to check if loader was enabled
+        $wasDebugEnabled = class_exists(DebugClassLoader::class, false);
+        if ($wasDebugEnabled) {
+            // disable temporary to apply AOP loader first
+            DebugClassLoader::disable();
+        }
+        parent::init($options);
+
+        if (!AopComposerLoader::wasInitialized()) {
+            throw new \RuntimeException("Initialization of AOP loader was failed, probably due to Debug::enable()");
+        }
+        if ($wasDebugEnabled) {
+            DebugClassLoader::enable();
+        }
     }
 }
