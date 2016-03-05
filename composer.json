@@ -4,7 +4,7 @@
     "type": "symfony-bundle",
     "require": {
         "goaop/framework": "^1.0|^2.0@dev",
-        "symfony/dependency-injection": "^2.3 <2.6.0"
+        "symfony/dependency-injection": "^2.6|^3.0"
     },
     "license": "MIT",
     "authors": [
