@@ -3,7 +3,7 @@
     "description": "Integration bridge for Go! AOP framework",
     "type": "symfony-bundle",
     "require": {
-        "goaop/framework": "^1.0@dev|^2.0@dev"
+        "goaop/framework": "^1.0|^2.0@dev"
     },
     "license": "MIT",
     "authors": [
