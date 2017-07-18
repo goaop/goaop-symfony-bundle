@@ -83,7 +83,6 @@ class AspectCacheWarmer extends CacheWarmer
             throw new \ErrorException($errstr, $errno, 0, $errfile, $errline);
         });
 
-        $errors = array();
         foreach ($iterator as $file) {
             $realPath = $file->getRealPath();
             try {
@@ -94,7 +93,7 @@ class AspectCacheWarmer extends CacheWarmer
                     "/resource=" . $realPath
                 );
             } catch (\Exception $e) {
-                $errors[$realPath] = $e;
+                /* noop */
             }
         }
 

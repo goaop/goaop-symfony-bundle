@@ -60,7 +60,12 @@ go_aop:
     # By default, cache_warmer is enabled (true), disable it only if you have serious issues with 
     # cache warming process.
     cache_warmer: true
-    
+
+    # This setting enables or disables workaround for weaving of Doctrine ORM entities. By default,
+    # it is disabled. If you are using Doctrine ORM and you are using AOP to weave Doctrine entities,
+    # enable this feature. For details about this known issue, see https://github.com/goaop/framework/issues/327
+    doctrine_support: false
+
     # Additional settings for the Go! AOP kernel initialization
     options:
         # Debug mode for the AOP, enable it for debugging and switch off for production mode to have a
@@ -88,6 +93,9 @@ go_aop:
         features: []
       
 ```
+
+XML format is supported for configuration of this bundle as well, for XML format please use provided
+[XML schema file](Resources/config/schema/configuration-1.0.0.xsd).
 
 Defining new aspects
 --------------------
@@ -144,6 +152,23 @@ services:
         tags:
             - { name: goaop.aspect }
 ```
+
+Known issues and workarounds
+----------------------------
+
+- By default, it is not possible to weave Doctrine ORM entities without additional configuration
+(see [https://github.com/goaop/framework/issues/327](https://github.com/goaop/framework/issues/327)).
+However, this bundle delivers workaround that can be easily enabled in configuration (see section
+about configuration in text above). Workaround is disabled by default in order to save some performances.
+- It is possible to get into circular reference issue when registering an aspect which has dependency on
+service that uses weaved class, or depends on service that has weaved class. Currently, detection of
+such scenario is not implemented, however, there are two workarounds:
+    - Instead of injecting weaved service in aspect, you can inject either service container or service
+      locator (see [https://symfony.com/doc/master/service_container/service_locators.html](https://symfony.com/doc/master/service_container/service_locators.html)).
+    - Instead of injecting weaved service in aspect, you can define weaved service as "lazy" that will
+      inject its lazy loading proxy (see [https://symfony.com/doc/current/service_container/lazy_services.html](https://symfony.com/doc/current/service_container/lazy_services.html)).
+
+
 
 License
 -------

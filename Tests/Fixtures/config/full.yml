@@ -1,0 +1,18 @@
+go_aop:
+    cache_warmer: false
+    doctrine_support: true
+    options:
+        debug: false
+        app_dir: /my/app/dir
+        cache_dir: /my/cache/dir
+        include_paths:
+            - /path/to/include
+            - /other/path/to/include
+        exclude_paths:
+            - /path/to/exclude
+            - /other/path/to/exclude
+        container_class: Container\Class
+        features:
+            - INTERCEPT_FUNCTIONS
+            - INTERCEPT_INITIALIZATIONS
+            - INTERCEPT_INCLUDES

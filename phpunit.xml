@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<phpunit bootstrap="./vendor/autoload.php" colors="true">
+
+    <php>
+        <server name="KERNEL_DIR" value="./Tests/Fixtures/project/app" />
+    </php>
+
+    <testsuites>
+
+        <testsuite name="Go! AOP Symfony bundle test suite">
+            <directory suffix="Test.php">./Tests/</directory>
+        </testsuite>
+
+    </testsuites>
+
+    <filter>
+        <whitelist>
+            <directory>./</directory>
+            <exclude>
+                <directory>./Resources</directory>
+                <directory>./Tests</directory>
+                <directory>./vendor</directory>
+                <directory>./build</directory>
+            </exclude>
+        </whitelist>
+    </filter>
+
+    <logging>
+        <log type="coverage-html" target="./build/coverage/html"/>
+        <log type="coverage-xml" target="./build/coverage/xml"/>
+        <log type="coverage-clover" target="./build/logs/clover.xml"/>
+        <log type="coverage-crap4j" target="./build/logs/crap4j.xml"/>
+        <log type="junit" target="./build/logs/junit.xml" logIncompleteSkipped="false"/>
+    </logging>
+
+</phpunit>

@@ -1,0 +1,19 @@
+#!/usr/bin/env php
+<?php
+
+use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Debug\Debug;
+
+set_time_limit(0);
+
+$loader = require __DIR__.'/../../../../vendor/autoload.php';
+
+$input = new ArgvInput();
+Debug::enable();
+
+require_once __DIR__.'/../app/AppKernel.php';
+
+$kernel = new AppKernel('test', true);
+$application = new Application($kernel);
+$application->run($input);

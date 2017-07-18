@@ -34,8 +34,12 @@ class Configuration implements ConfigurationInterface
         $rootNode
             ->children()
                 ->booleanNode('cache_warmer')->defaultTrue()->end()
+                ->booleanNode('doctrine_support')->defaultFalse()->end()
                 ->arrayNode('options')
                     ->addDefaultsIfNotSet()
+                    ->fixXmlConfig('feature', 'features')
+                    ->fixXmlConfig('include_path', 'include_paths')
+                    ->fixXmlConfig('exclude_path', 'exclude_paths')
                     ->children()
                         ->scalarNode('features')
                             ->beforeNormalization()
@@ -47,7 +51,7 @@ class Configuration implements ConfigurationInterface
                                         if (!isset($features[$featureName])) {
                                             throw new InvalidConfigurationException("Uknown feature: {$featureName}");
                                         }
-                                        $featureMask += isset($features[$featureName]) ? $features[$featureName] : 0;
+                                        $featureMask |= $features[$featureName];
                                     }
 
                                     return $featureMask;

@@ -29,6 +29,9 @@
             <argument type="service" id="goaop.aspect.kernel"/>
             <argument type="service" id="goaop.cache.path.manager"/>
         </service>
+
+        <service id="goaop.bridge.doctrine.metadata_load_interceptor" public="false" class="Go\Bridge\Doctrine\MetadataLoadInterceptor" />
+
     </services>
 
 </container>

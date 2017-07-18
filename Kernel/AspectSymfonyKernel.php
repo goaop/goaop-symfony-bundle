@@ -10,7 +10,6 @@
 
 namespace Go\Symfony\GoAopBundle\Kernel;
 
-
 use Go\Core\AspectContainer;
 use Go\Core\AspectKernel;
 use Go\Instrument\ClassLoading\AopComposerLoader;
@@ -27,6 +26,7 @@ class AspectSymfonyKernel extends AspectKernel
      */
     protected function configureAop(AspectContainer $container)
     {
+        /* noop */
     }
 
     /**

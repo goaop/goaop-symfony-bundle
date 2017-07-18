@@ -18,6 +18,21 @@ use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
 
 class GoAopExtension extends Extension
 {
+    /**
+     * {@inheritdoc}
+     */
+    public function getNamespace()
+    {
+        return 'http://go.aopphp.com/xsd-schema/go-aop-bundle';
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getXsdValidationBasePath()
+    {
+        return __DIR__ . '/../Resources/config/schema';
+    }
 
     /**
      * Loads a specific configuration.
@@ -42,12 +57,19 @@ class GoAopExtension extends Extension
         }
         $container->setParameter('goaop.options', $normalizedOptions);
 
-        $loader = new XmlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
+        $loader = new XmlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
         $loader->load('services.xml');
+        $loader->load('commands.xml');
 
         if ($config['cache_warmer']) {
             $definition = $container->getDefinition('goaop.cache.warmer');
             $definition->addTag('kernel.cache_warmer');
+        }
+
+        if ($config['doctrine_support']) {
+            $container
+                ->getDefinition('goaop.bridge.doctrine.metadata_load_interceptor')
+                ->addTag('doctrine.event_subscriber');
         }
     }
 }

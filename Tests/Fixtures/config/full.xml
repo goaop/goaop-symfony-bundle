@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+<container
+        xmlns="http://symfony.com/schema/dic/services"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:go-aop="http://go.aopphp.com/xsd-schema/go-aop-bundle"
+        xsi:schemaLocation="http://symfony.com/schema/dic/services
+                            http://symfony.com/schema/dic/services/services-1.0.xsd
+                            http://go.aopphp.com/xsd-schema/go-aop-bundle
+                            http://go.aopphp.com/xsd-schema/go-aop-bundle/configuration-1.0.0.xsd
+                            "
+>
+    <go-aop:config>
+
+        <go-aop:cache-warmer>false</go-aop:cache-warmer>
+
+        <go-aop:doctrine-support>true</go-aop:doctrine-support>
+
+        <go-aop:options>
+
+            <go-aop:debug>false</go-aop:debug>
+            <go-aop:app-dir>/my/app/dir</go-aop:app-dir>
+            <go-aop:cache-dir>/my/cache/dir</go-aop:cache-dir>
+
+            <go-aop:include-path>/path/to/include</go-aop:include-path>
+            <go-aop:include-path>/other/path/to/include</go-aop:include-path>
+
+            <go-aop:exclude-path>/path/to/exclude</go-aop:exclude-path>
+            <go-aop:exclude-path>/other/path/to/exclude</go-aop:exclude-path>
+
+            <go-aop:container-class>Container\Class</go-aop:container-class>
+
+            <go-aop:feature>INTERCEPT_FUNCTIONS</go-aop:feature>
+            <go-aop:feature>INTERCEPT_INCLUDES</go-aop:feature>
+            <go-aop:feature>INTERCEPT_INITIALIZATIONS</go-aop:feature>
+
+        </go-aop:options>
+
+    </go-aop:config>
+
+</container>

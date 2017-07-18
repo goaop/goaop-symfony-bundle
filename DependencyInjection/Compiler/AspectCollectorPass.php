@@ -19,16 +19,15 @@ use Symfony\Component\DependencyInjection\Reference;
  */
 class AspectCollectorPass implements CompilerPassInterface
 {
-
     /**
-     * You can modify the container here before it is dumped to PHP code.
-     *
-     * @param ContainerBuilder $container
-     *
-     * @api
+     * {@inheritdoc}
      */
     public function process(ContainerBuilder $container)
     {
+        if (!$container->hasDefinition('goaop.aspect.container')) {
+            return;
+        }
+
         $aspectIds       = $container->findTaggedServiceIds('goaop.aspect');
         $aspectContainer = $container->getDefinition('goaop.aspect.container');
         foreach ($aspectIds as $aspectId => $aspectTags) {

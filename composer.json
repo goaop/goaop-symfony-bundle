@@ -3,8 +3,20 @@
     "description": "Integration bridge for Go! AOP framework",
     "type": "symfony-bundle",
     "require": {
-        "goaop/framework": "^1.0|^2.0",
-        "symfony/dependency-injection": "^2.6|^3.0"
+        "goaop/framework": "^2.1.2",
+        "symfony/framework-bundle": "^2.6|^3.0",
+        "symfony/console": "^2.6|^3.0",
+        "roave/security-advisories": "dev-master"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^5.7",
+        "symfony/phpunit-bridge": "^3.3.4",
+        "symfony/debug": "^2.7|^3.0",
+        "matthiasnoback/symfony-dependency-injection-test": "^1.1.0",
+        "doctrine/orm": "^2.5",
+        "symfony/filesystem": "^2.8|^3.0",
+        "symfony/process": "^3.3",
+        "symfony/expression-language": "^3.3"
     },
     "license": "MIT",
     "authors": [
@@ -16,6 +28,12 @@
     "autoload": {
         "psr-4": {
             "Go\\Symfony\\GoAopBundle\\": "./"
+        },
+        "exclude-from-classmap": [ "./Tests/" ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Go\\Symfony\\GoAopBundle\\Tests\\TestProject\\": "./Tests/Fixtures/project/src/"
         }
     },
     "extra": {
