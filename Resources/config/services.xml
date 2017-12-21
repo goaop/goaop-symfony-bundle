@@ -16,7 +16,7 @@
             </call>
         </service>
 
-        <service id="goaop.aspect.container" class="Go\Core\GoAspectContainer">
+        <service id="goaop.aspect.container" class="Go\Core\GoAspectContainer" public="true">
             <factory service="goaop.aspect.kernel" method="getContainer"/>
         </service>
 
