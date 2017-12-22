@@ -2,6 +2,7 @@ GoAopBundle
 ==============
 
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/goaop/goaop-symfony-bundle/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/goaop/goaop-symfony-bundle/?branch=master)
+[![Travis branch](https://img.shields.io/travis/goaop/goaop-symfony-bundle/master.svg)](https://travis-ci.org/goaop/goaop-symfony-bundle.svg?branch=master)
 [![GitHub release](https://img.shields.io/github/release/goaop/goaop-symfony-bundle.svg)](https://github.com/goaop/goaop-symfony-bundle/releases/latest)
 [![Minimum PHP Version](http://img.shields.io/badge/php-%3E%3D%205.5-8892BF.svg)](https://php.net/)
 [![License](https://img.shields.io/packagist/l/goaop/goaop-symfony-bundle.svg)](https://packagist.org/packages/goaop/goaop-symfony-bundle)
