@@ -10,9 +10,9 @@
 
 namespace Go\Symfony\GoAopBundle\Tests\DependencyInjection;
 
+use Go\Aop\Aspect;
 use Go\Symfony\GoAopBundle\DependencyInjection\GoAopExtension;
 use Matthias\SymfonyDependencyInjectionTest\PhpUnit\AbstractExtensionTestCase;
-use Symfony\Component\DependencyInjection\Definition;
 
 /**
  * Class GoAopExtensionTest
@@ -87,6 +87,22 @@ class GoAopExtensionTest extends AbstractExtensionTestCase
         ]);
 
         $this->assertContainerBuilderHasServiceDefinitionWithTag('goaop.bridge.doctrine.metadata_load_interceptor', 'doctrine.event_subscriber');
+    }
+
+    /**
+     * @test
+     */
+    public function itRegistersAspectInterfaceForAutoconfiguration()
+    {
+        if (!method_exists($this->container, 'getAutoconfiguredInstanceof')) {
+            $this->markTestSkipped('Service autoconfiguration is available in Symfony 3.3+');
+        }
+
+        $this->load();
+
+        $autoconfigure = $this->container->getAutoconfiguredInstanceof();
+
+        $this->assertTrue($autoconfigure[Aspect::class]->hasTag('goaop.aspect'));
     }
 
     /**

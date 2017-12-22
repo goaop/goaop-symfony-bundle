@@ -153,6 +153,9 @@ services:
             - { name: goaop.aspect }
 ```
 
+If you're using Symfony 3.3+ with autowired and autoconfigured services, your aspects will be 
+registered automatically.
+
 Known issues and workarounds
 ----------------------------
 

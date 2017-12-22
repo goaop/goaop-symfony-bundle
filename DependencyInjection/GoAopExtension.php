@@ -11,6 +11,7 @@
 namespace Go\Symfony\GoAopBundle\DependencyInjection;
 
 
+use Go\Aop\Aspect;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
@@ -70,6 +71,13 @@ class GoAopExtension extends Extension
             $container
                 ->getDefinition('goaop.bridge.doctrine.metadata_load_interceptor')
                 ->addTag('doctrine.event_subscriber');
+        }
+
+        // Service autoconfiguration is available in Symfony 3.3+
+        if (method_exists($container, 'registerForAutoconfiguration')) {
+            $container
+                ->registerForAutoconfiguration(Aspect::class)
+                ->addTag('goaop.aspect');
         }
     }
 }
