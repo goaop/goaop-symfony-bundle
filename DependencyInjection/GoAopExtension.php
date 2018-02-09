@@ -47,6 +47,10 @@ class GoAopExtension extends Extension
      */
     public function load(array $config, ContainerBuilder $container)
     {
+        $loader = new XmlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
+        $loader->load('services.xml');
+        $loader->load('commands.xml');
+
         $configurator = new Configuration();
         $config       = $this->processConfiguration($configurator, $config);
 
@@ -57,10 +61,6 @@ class GoAopExtension extends Extension
             $normalizedOptions[$optionKey] = $value;
         }
         $container->setParameter('goaop.options', $normalizedOptions);
-
-        $loader = new XmlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
-        $loader->load('services.xml');
-        $loader->load('commands.xml');
 
         if ($config['cache_warmer']) {
             $definition = $container->getDefinition('goaop.cache.warmer');
