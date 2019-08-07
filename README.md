@@ -7,7 +7,8 @@ GoAopBundle
 [![Minimum PHP Version](http://img.shields.io/badge/php-%3E%3D%205.5-8892BF.svg)](https://php.net/)
 [![License](https://img.shields.io/packagist/l/goaop/goaop-symfony-bundle.svg)](https://packagist.org/packages/goaop/goaop-symfony-bundle)
 
-The GoAopBundle adds support for Aspect-Oriented Programming via Go! AOP Framework for Symfony2-Symfony4 applications.
+The GoAopBundle adds support for Aspect-Oriented Programming via Go! AOP Framework for Symfony2 applications.
+**Symfony 3.4 and upper versions are not supported!** Global rewrite of bundle is required to make it working for newer versions of Symfony.
 
 Overview
 --------
