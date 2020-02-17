@@ -13,12 +13,15 @@ namespace Go\Symfony\GoAopBundle\DependencyInjection;
 
 use Go\Aop\Features;
 use Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel;
+use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
+use Symfony\Component\HttpKernel\Kernel;
 
 class Configuration implements ConfigurationInterface
 {
+    const CONFIGURATION_ROOT_NODE = 'go_aop';
 
     /**
      * Generates the configuration tree builder.
@@ -27,8 +30,8 @@ class Configuration implements ConfigurationInterface
      */
     public function getConfigTreeBuilder()
     {
-        $treeBuilder = new TreeBuilder();
-        $rootNode = $treeBuilder->root('go_aop');
+        $treeBuilder = new TreeBuilder(self::CONFIGURATION_ROOT_NODE);
+        $rootNode = $this->getRootNode($treeBuilder);
         $features = (new \ReflectionClass('Go\Aop\Features'))->getConstants();
 
         $rootNode
@@ -76,5 +79,19 @@ class Configuration implements ConfigurationInterface
         ;
 
         return $treeBuilder;
+    }
+
+    /**
+     * @param TreeBuilder $treeBuilder
+     *
+     * @return ArrayNodeDefinition
+     */
+    private function getRootNode(TreeBuilder $treeBuilder)
+    {
+        if (Kernel::VERSION_ID >= 40200) {
+            return $treeBuilder->getRootNode();
+        }
+
+        return $treeBuilder->root(self::CONFIGURATION_ROOT_NODE);
     }
 }
