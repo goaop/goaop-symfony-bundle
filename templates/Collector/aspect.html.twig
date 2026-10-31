@@ -1,0 +1,183 @@
+{% extends '@WebProfiler/Profiler/layout.html.twig' %}
+
+{% block toolbar %}
+    {% set status_color = collector.classesDeclaredBeforeInitialization is not empty ? 'yellow' : '' %}
+    {% set icon %}
+        {{ include('@GoAop/Icon/aspect.svg') }}
+        <span class="sf-toolbar-value">{{ collector.aspects|length }}</span>
+        <span class="sf-toolbar-label">aspect{{ collector.aspects|length != 1 ? 's' }}</span>
+    {% endset %}
+
+    {% set text %}
+        <div class="sf-toolbar-info-piece">
+            <b>Aspects</b>
+            <span class="sf-toolbar-status">{{ collector.aspects|length }}</span>
+        </div>
+        <div class="sf-toolbar-info-piece">
+            <b>Advisors</b>
+            <span class="sf-toolbar-status">{{ collector.advisorCount }}</span>
+        </div>
+        <div class="sf-toolbar-info-piece">
+            <b>Woven classes in this request</b>
+            <span class="sf-toolbar-status">{{ collector.wovenClasses|length }}</span>
+        </div>
+        <div class="sf-toolbar-info-piece">
+            <b>Woven classes in the cache</b>
+            <span class="sf-toolbar-status">{{ collector.cachedClassCount }}</span>
+        </div>
+        {% if collector.classesDeclaredBeforeInitialization is not empty %}
+            <div class="sf-toolbar-info-piece">
+                <b>Loaded before weaving</b>
+                <span class="sf-toolbar-status sf-toolbar-status-yellow">{{ collector.classesDeclaredBeforeInitialization|length }}</span>
+            </div>
+        {% endif %}
+        <div class="sf-toolbar-info-piece">
+            <b>Mode</b>
+            <span>{{ collector.debug ? 'debug' : 'production' }}</span>
+        </div>
+    {% endset %}
+
+    {{ include('@WebProfiler/Profiler/toolbar_item.html.twig', {link: profiler_url, status: status_color}) }}
+{% endblock %}
+
+{% block menu %}
+    <span class="label {{ collector.classesDeclaredBeforeInitialization is not empty ? 'label-status-warning' }}">
+        <span class="icon">{{ include('@GoAop/Icon/aspect.svg') }}</span>
+        <strong>Go! AOP</strong>
+        {% if collector.classesDeclaredBeforeInitialization is not empty %}
+            <span class="count"><span>{{ collector.classesDeclaredBeforeInitialization|length }}</span></span>
+        {% endif %}
+    </span>
+{% endblock %}
+
+{% block panel %}
+    <h2>Go! AOP</h2>
+
+    <div class="metrics">
+        <div class="metric">
+            <span class="value">{{ collector.aspects|length }}</span>
+            <span class="label">Aspects</span>
+        </div>
+        <div class="metric">
+            <span class="value">{{ collector.advisorCount }}</span>
+            <span class="label">Advisors</span>
+        </div>
+        <div class="metric">
+            <span class="value">{{ collector.wovenClasses|length }}</span>
+            <span class="label">Woven classes used</span>
+        </div>
+        <div class="metric">
+            <span class="value">{{ collector.cachedClassCount }}</span>
+            <span class="label">Woven classes cached</span>
+        </div>
+        <div class="metric">
+            <span class="value">{{ collector.debug ? 'debug' : 'prod' }}</span>
+            <span class="label">Mode</span>
+        </div>
+    </div>
+
+    {% if collector.classesDeclaredBeforeInitialization is not empty %}
+        <div class="sf-tabs">
+            <div class="tab">
+                <h3 class="tab-title">Classes loaded before weaving <span class="badge status-warning">{{ collector.classesDeclaredBeforeInitialization|length }}</span></h3>
+                <div class="tab-content">
+                    <p class="help">
+                        These classes lie below the include paths but were declared before the aspect kernel was initialized,
+                        so no aspect applies to them in this request. This happens in the request that rebuilds the container
+                        (the container compiler loads the service classes), or when a bundle registered before GoAopBundle
+                        loads application code while it boots.
+                    </p>
+                    <table>
+                        <thead><tr><th>Class</th></tr></thead>
+                        <tbody>
+                        {% for class in collector.classesDeclaredBeforeInitialization %}
+                            <tr><td class="font-normal text-small break-long-words">{{ class }}</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <h3>Aspects</h3>
+    {% if collector.aspects is empty %}
+        <div class="empty empty-panel">
+            <p>No aspect is registered. Create a service implementing <code>Go\Aop\Aspect</code>: autoconfiguration tags it as <code>goaop.aspect</code>.</p>
+        </div>
+    {% else %}
+        {% for aspect in collector.aspects %}
+            <div class="card">
+                <h4 class="break-long-words">{{ aspect.class }}</h4>
+                {% if aspect.file %}
+                    <p class="text-small text-muted">{{ aspect.file|file_link(0) ? ('<a href="' ~ aspect.file|file_link(0) ~ '">' ~ aspect.file ~ '</a>')|raw : aspect.file }}</p>
+                {% endif %}
+                {% if aspect.advisors is empty and aspect.pointcuts is empty %}
+                    <p class="text-muted">No advice declared.</p>
+                {% else %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Advice</th>
+                                <th>Pointcut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for advisor in aspect.advisors %}
+                            <tr>
+                                <td class="nowrap"><span class="badge">{{ advisor.type }}</span></td>
+                                <td class="font-normal text-small break-long-words">{{ advisor.id }}</td>
+                                <td class="font-normal text-small break-long-words"><code>{{ advisor.pointcut }}</code></td>
+                            </tr>
+                        {% endfor %}
+                        {% for pointcut in aspect.pointcuts %}
+                            <tr>
+                                <td class="nowrap"><span class="badge">Pointcut</span></td>
+                                <td class="font-normal text-small break-long-words" colspan="2">{{ pointcut }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <h3>Woven classes used in this request</h3>
+    {% if collector.wovenClasses is empty %}
+        <div class="empty empty-panel">
+            <p>No woven class was loaded during this request.</p>
+        </div>
+    {% else %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Class</th>
+                    <th>Proxy</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for class, file in collector.wovenClasses %}
+                <tr>
+                    <td class="font-normal text-small break-long-words">{{ class }}</td>
+                    <td class="font-normal text-small break-long-words">{{ file }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    <h3>Configuration</h3>
+    <table>
+        <tbody>
+            <tr><th>Kernel</th><td class="font-normal">{{ collector.kernelClass }}</td></tr>
+            <tr><th>Mode</th><td class="font-normal">{{ collector.debug ? 'debug: sources and aspects are checked for changes' : 'production: woven classes are served from the cache' }}</td></tr>
+            <tr><th>Application directory</th><td class="font-normal">{{ collector.appDir }}</td></tr>
+            <tr><th>Cache directory</th><td class="font-normal">{{ collector.cacheDir }}</td></tr>
+            <tr><th>Include paths</th><td class="font-normal">{{ collector.includePaths is empty ? '(everything below the application directory)' : collector.includePaths|join('<br>')|raw }}</td></tr>
+            <tr><th>Exclude paths</th><td class="font-normal">{{ collector.excludePaths is empty ? '-' : collector.excludePaths|join('<br>')|raw }}</td></tr>
+            <tr><th>Features</th><td class="font-normal">{{ collector.features is empty ? '-' : collector.features|join(', ') }}</td></tr>
+        </tbody>
+    </table>
+{% endblock %}
