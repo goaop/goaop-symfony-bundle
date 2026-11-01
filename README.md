@@ -170,18 +170,18 @@ Environment variables work as everywhere in Symfony, e.g. `debug: '%env(bool:GOA
 
 | Command | Purpose |
 |---|---|
-| `cache:warmup:aop [--fail-fast]` | Weaves every file below the include paths into the cache. Fails when a file cannot be woven. The same warm-up runs as a cache warmer of `cache:warmup` and `cache:clear`. |
+| `cache:warmup:aop [--fail-fast] [--cache-dir=DIR]` | Weaves every file below the include paths into the cache. Fails when a file cannot be woven. The same warm-up runs as a cache warmer of `cache:warmup` and `cache:clear`. |
 | `debug:aspect [--aspect=FQCN]` | Lists the aspects with their pointcuts and advisors. |
 | `debug:advisor [--advisor=ID]` | Lists the advisors; with `--advisor` the joinpoints that advisor matches. The quickest way to check a pointcut expression. |
 | `debug:weaving [-v]` | Weaves the application twice and reports proxies that differ, which points to a non-deterministic aspect. |
 
-The commands work on the running application, so unlike the framework's `vendor/bin/aspect` they take no loader argument.
+These are the commands of the framework itself, registered in the console of the application: they work on the running aspect kernel, so the loader argument of `vendor/bin/aspect` is omitted. `cache:warmup:aop --cache-dir=DIR` builds the cache in another directory, from scratch, which is what the cache warmer does during `cache:clear`.
 
 ## Deployment
 
 ### Warm up the cache
 
-`cache:clear` and `cache:warmup` weave the application through an optional cache warmer. `cache:clear` builds the new cache next to the running one and renames it afterwards; the warmer notices that the target directory is not the one of the running kernel and weaves it in a fresh process (through the dumped bootstrap file, see below), so the usual deployment steps need no change:
+`cache:clear` and `cache:warmup` weave the application through an optional cache warmer. `cache:clear` builds the new cache next to the running one and renames it afterwards; the warmer builds the AOP cache in that new directory, from scratch, while the running kernel keeps its own, so the usual deployment steps need no change:
 
 ```bash
 composer install --no-dev --optimize-autoloader   # runs cache:clear through the auto-scripts
@@ -204,24 +204,21 @@ when@prod:
 
 If your `kernel.build_dir` differs from `kernel.cache_dir` (read-only build directory, writable cache directory), anchor the AOP cache on the directory you build at deploy time: `cache_dir: '%kernel.build_dir%/aop'`.
 
-### The bootstrap file
+### Opcache preloading
 
-Every warm-up dumps `<cache_dir>/bootstrap.php` (by default `var/cache/prod/aop/bootstrap.php`). The file initializes the aspect kernel of your application outside of the Symfony kernel, with the same options and aspects, and returns it. It has two uses:
+Symfony's preload file loads the classes of your services through the autoloader, so without the aspect kernel it would preload the original classes, and a preloaded class can not be woven anymore. Boot the kernel in `config/preload.php` before requiring the container preload file: booting initializes the aspect kernel, and the woven classes are preloaded instead.
 
-- **The framework console.** `vendor/bin/aspect` takes it as its loader: `vendor/bin/aspect debug:advisor var/cache/prod/aop/bootstrap.php`.
-- **Opcache preloading.** Symfony's preload file loads the classes of your services through the autoloader. Require the bootstrap file first, so that the woven classes are preloaded instead of the original ones:
+```php
+// config/preload.php
+use App\Kernel;
 
-  ```php
-  // config/preload.php
-  if (file_exists(dirname(__DIR__).'/var/cache/prod/aop/bootstrap.php')) {
-      require dirname(__DIR__).'/var/cache/prod/aop/bootstrap.php';
-  }
-  if (file_exists(dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php')) {
-      require dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php';
-  }
-  ```
+require dirname(__DIR__).'/vendor/autoload.php';
 
-Aspects are registered by their class only in that file, so advices can not run outside of the application; nothing else differs from the kernel the application uses.
+if (file_exists(dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php')) {
+    (new Kernel('prod', false))->boot();
+    require dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php';
+}
+```
 
 ## Doctrine ORM
 
@@ -243,7 +240,7 @@ With `symfony/web-profiler-bundle` installed, the toolbar shows the number of as
 
 ## Extending
 
-- **Custom transformers.** Point `kernel_class` at a subclass of `Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel` and register your `SourceTransformer` or `NodeRewriter` services in `configureAop()` (see the [framework documentation](https://github.com/goaop/framework/blob/master/docs/configuration.md#extending-the-transformation-pipeline)). The bootstrap file and the cache warmer use the same class.
+- **Custom transformers.** Point `kernel_class` at a subclass of `Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel` and register your `SourceTransformer` or `NodeRewriter` services in `configureAop()` (see the [framework documentation](https://github.com/goaop/framework/blob/master/docs/configuration.md#extending-the-transformation-pipeline)).
 - **Autowirable services.** `Go\Core\AspectKernel` and `Go\Core\AspectContainer` are services, `goaop.aspect_kernel` is public. The aspect container is a PSR-11 container that falls back to the Symfony container for unknown ids.
 - **Aspects without autoconfiguration.** Tag the service with `goaop.aspect`:
   ```yaml
@@ -257,10 +254,9 @@ With `symfony/web-profiler-bundle` installed, the toolbar shows the number of as
 
 - **"GoAopBundle must be the first bundle in config/bundles.php"** — move it above every other bundle (the internal component bundles of Symfony 8.1 are fine before it).
 - **An aspect does not apply.** Check `debug:advisor --advisor=...` first: it lists the joinpoints a pointcut matches. Then make sure the class lies below an include path and is not loaded before the bundle boots (profiler panel, *classes loaded before weaving*). Vendor code is only woven when its directory is an include path.
-- **Everything works in dev but not in prod.** The production cache is built at deploy time: run `cache:clear` or `cache:warmup`, and keep `PREBUILT_CACHE` on only when the deployment rebuilds the cache. Check that nothing defines `.container.dumper.inline_class_loader: true`, and that `config/preload.php` requires the bootstrap file before the container preload file when preloading is enabled.
+- **Everything works in dev but not in prod.** The production cache is built at deploy time: run `cache:clear` or `cache:warmup`, and keep `PREBUILT_CACHE` on only when the deployment rebuilds the cache. Check that nothing defines `.container.dumper.inline_class_loader: true`, and that `config/preload.php` boots the kernel before the container preload file when preloading is enabled.
 - **Circular reference when an aspect depends on a service it advises.** The aspect is created when the first advice runs, which may happen while the Symfony container is still building that very service. Inject a service locator or mark the woven service `lazy`.
 - **Exception handlers.** Exclude the classes that must be loadable when everything else failed (error handlers, the kernel) through `exclude_paths`.
-- **`cache:clear` fails with "the PHP executable was not found"**: the warm-up of the new cache runs in a fresh process; make `php` available in the `PATH` (or run `cache:warmup` separately, which weaves in-process).
 
 ## Upgrading from 2.x
 

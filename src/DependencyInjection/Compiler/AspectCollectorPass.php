@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Go\Symfony\GoAopBundle\DependencyInjection\Compiler;
 
 use Go\Aop\Aspect;
+use Go\Core\AspectKernel;
 use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\Compiler\ServiceLocatorTagPass;
@@ -23,8 +24,9 @@ use Symfony\Component\DependencyInjection\Reference;
 /**
  * Collects the services tagged as aspects into a service locator keyed by the aspect class.
  *
- * The aspect kernel registers every class of the locator as a deferred aspect: the weaver only needs
- * the classes, and the Symfony container creates the aspect when one of its advices runs first.
+ * The locator is the second argument of the aspect kernel service: the kernel registers every class of
+ * the locator as a deferred aspect, since the weaver only needs the classes, and the Symfony container
+ * creates the aspect when one of its advices runs first.
  */
 final class AspectCollectorPass implements CompilerPassInterface
 {
@@ -33,14 +35,9 @@ final class AspectCollectorPass implements CompilerPassInterface
      */
     public const string ASPECT_TAG = 'goaop.aspect';
 
-    /**
-     * Id of the service locator holding the aspects, keyed by class
-     */
-    public const string LOCATOR_ID = 'goaop.aspect_locator';
-
     public function process(ContainerBuilder $container): void
     {
-        if (!$container->hasDefinition('goaop.aspect_kernel')) {
+        if (!$container->hasDefinition(AspectKernel::class)) {
             return;
         }
 
@@ -68,8 +65,8 @@ final class AspectCollectorPass implements CompilerPassInterface
             $aspects[$class] = new Reference($id);
         }
 
-        $locator = ServiceLocatorTagPass::register($container, $aspects);
-        $container->setAlias(self::LOCATOR_ID, (string) $locator);
+        $container->getDefinition(AspectKernel::class)
+            ->replaceArgument(1, ServiceLocatorTagPass::register($container, $aspects));
     }
 
     /**

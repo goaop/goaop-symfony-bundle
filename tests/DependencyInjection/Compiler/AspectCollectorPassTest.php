@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Go\Symfony\GoAopBundle\Tests\DependencyInjection\Compiler;
 
+use Go\Core\AspectKernel;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\AspectCollectorPass;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Aspect\LoggingAspect;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Service\Recorder;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\DependencyInjection\Argument\AbstractArgument;
 use Symfony\Component\DependencyInjection\Argument\ServiceClosureArgument;
 use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 use Symfony\Component\DependencyInjection\Reference;
 
@@ -24,8 +27,7 @@ class AspectCollectorPassTest extends TestCase
 
         new AspectCollectorPass()->process($container);
 
-        $this->assertTrue($container->hasAlias(AspectCollectorPass::LOCATOR_ID));
-        $locator = $container->findDefinition(AspectCollectorPass::LOCATOR_ID);
+        $locator = $this->aspectLocator($container);
         $map     = $locator->getArgument(0);
         $this->assertIsArray($map);
         $this->assertSame([LoggingAspect::class], array_keys($map));
@@ -41,7 +43,7 @@ class AspectCollectorPassTest extends TestCase
 
         new AspectCollectorPass()->process($container);
 
-        $map = $container->findDefinition(AspectCollectorPass::LOCATOR_ID)->getArgument(0);
+        $map = $this->aspectLocator($container)->getArgument(0);
         $this->assertIsArray($map);
         $this->assertSame([LoggingAspect::class], array_keys($map));
     }
@@ -77,7 +79,7 @@ class AspectCollectorPassTest extends TestCase
 
         new AspectCollectorPass()->process($container);
 
-        $map = $container->findDefinition(AspectCollectorPass::LOCATOR_ID)->getArgument(0);
+        $map = $this->aspectLocator($container)->getArgument(0);
         $this->assertIsArray($map);
         $this->assertCount(1, $map);
     }
@@ -89,14 +91,25 @@ class AspectCollectorPassTest extends TestCase
 
         new AspectCollectorPass()->process($container);
 
-        $this->assertFalse($container->hasAlias(AspectCollectorPass::LOCATOR_ID));
+        $this->assertFalse($container->hasDefinition(AspectKernel::class));
     }
 
     private function createContainer(): ContainerBuilder
     {
         $container = new ContainerBuilder();
-        $container->register('goaop.aspect_kernel');
+        $container->register(AspectKernel::class)->setArguments(['%goaop.options%', new AbstractArgument('aspects'), new Reference('service_container')]);
 
         return $container;
+    }
+
+    /**
+     * The locator definition the pass injected into the kernel service
+     */
+    private function aspectLocator(ContainerBuilder $container): Definition
+    {
+        $locator = $container->getDefinition(AspectKernel::class)->getArgument(1);
+        $this->assertInstanceOf(Reference::class, $locator);
+
+        return $container->getDefinition((string) $locator);
     }
 }

@@ -27,11 +27,9 @@ use Symfony\Contracts\Service\ServiceProviderInterface;
 /**
  * Aspect kernel of a Symfony application.
  *
- * The kernel is created by the "goaop.aspect_kernel" service, from the options of the "go_aop"
- * configuration and the aspects collected from the service container (see {@see self::create()}),
- * and by the bootstrap file dumped into the cache directory ({@see self::bootstrap()}), which
- * initializes the very same kernel outside of the Symfony kernel: for `vendor/bin/aspect` and
- * for opcache preloading.
+ * The kernel is created by the service registered under the "Go\Core\AspectKernel" id, from the
+ * options of the "go_aop" configuration and the aspects collected from the service container
+ * (see {@see self::create()}).
  *
  * Extend it and point the "go_aop.kernel_class" option at your class to register additional
  * source transformers or to change the transformation pipeline.
@@ -69,37 +67,6 @@ class AspectSymfonyKernel extends AspectKernel
         foreach (array_keys($aspects->getProvidedServices()) as $aspectClass) {
             /** @var class-string<Aspect> $aspectClass */
             $aspectContainer->addLazyService($aspectClass, static fn(): Aspect => $aspects->get($aspectClass));
-        }
-
-        return $kernel;
-    }
-
-    /**
-     * Initializes the kernel outside of the Symfony application, from the dumped bootstrap file.
-     *
-     * Every aspect is registered by its class only: the weaver, the cache warmer and the debug commands
-     * work with the aspect classes, and opcache preloading declares the woven classes without ever
-     * calling an advice. An advice that runs anyway (an aspect instance is needed) fails with a clear
-     * message instead of a half-configured aspect.
-     *
-     * @phpstan-param UserKernelOptions $options
-     *
-     * @param list<class-string<Aspect>> $aspectClasses
-     */
-    public static function bootstrap(array $options, array $aspectClasses): static
-    {
-        $kernel = self::instance();
-        $kernel->init($options);
-
-        $aspectContainer = $kernel->getContainer();
-        foreach ($aspectClasses as $aspectClass) {
-            $aspectContainer->addLazyService($aspectClass, static function () use ($aspectClass): never {
-                throw new LogicException(sprintf(
-                    'The aspect "%s" can not be created: this Go! AOP kernel was bootstrapped outside of the Symfony '
-                    . 'application (from the dumped bootstrap file), where aspects are known by their class only.',
-                    $aspectClass,
-                ));
-            });
         }
 
         return $kernel;
@@ -172,7 +139,7 @@ class AspectSymfonyKernel extends AspectKernel
 
     protected function configureAop(AspectContainer $container): void
     {
-        // Aspects are registered by create() and bootstrap(): the kernel itself has no static configuration
+        // Aspects are registered by create(): the kernel itself has no static configuration
     }
 
     /**

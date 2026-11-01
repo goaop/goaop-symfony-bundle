@@ -53,7 +53,7 @@ class KernelBootTest extends FunctionalTestCase
     {
         $container = $this->bootKernel()->getContainer();
 
-        $kernel = $container->get('goaop.aspect_kernel');
+        $kernel = $container->get(AspectKernel::class);
         $this->assertInstanceOf(AspectSymfonyKernel::class, $kernel);
         $this->assertSame(AspectKernel::getInstance(), $kernel);
         $this->assertSame(self::cacheRootDir() . '/test/aop', $kernel->getOptions()['cacheDir']);

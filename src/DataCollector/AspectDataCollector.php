@@ -40,8 +40,8 @@ use Throwable;
  *   debug?: bool,
  *   app_dir?: string,
  *   cache_dir?: string,
- *   include_paths?: list<string>,
- *   exclude_paths?: list<string>,
+ *   include_paths?: array<string>,
+ *   exclude_paths?: array<string>,
  *   features?: list<string>,
  *   aspects?: list<AspectInfo>,
  *   woven_classes?: array<class-string, string>,
@@ -79,8 +79,8 @@ final class AspectDataCollector extends DataCollector
             'debug'                 => $options['debug'],
             'app_dir'               => $options['appDir'],
             'cache_dir'             => (string) $options['cacheDir'],
-            'include_paths'         => array_values($options['includePaths']),
-            'exclude_paths'         => array_values($options['excludePaths']),
+            'include_paths'         => $options['includePaths'],
+            'exclude_paths'         => $options['excludePaths'],
             'features'              => $features,
             'aspects'               => $this->collectAspects(),
             'woven_classes'         => $this->collectWovenClasses(),
@@ -163,7 +163,7 @@ final class AspectDataCollector extends DataCollector
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getIncludePaths(): array
     {
@@ -171,7 +171,7 @@ final class AspectDataCollector extends DataCollector
     }
 
     /**
-     * @return list<string>
+     * @return array<string>
      */
     public function getExcludePaths(): array
     {

@@ -60,11 +60,12 @@ Services
 
 | 2.x                           | 4.0                                                   |
 |-------------------------------|-------------------------------------------------------|
-| `goaop.aspect.kernel`         | `goaop.aspect_kernel`, alias `Go\Core\AspectKernel`   |
-| `goaop.aspect.container`      | `goaop.aspect_container`, alias `Go\Core\AspectContainer` |
+| `goaop.aspect.kernel`         | `Go\Core\AspectKernel`                                |
+| `goaop.aspect.container`      | `Go\Core\AspectContainer`                             |
 | `goaop.cache.path.manager`    | removed, `$aspectContainer->getService(CachePathManager::class)` |
-| `goaop.cache.warmer`          | `goaop.cache_warmer`                                  |
-| `goaop.bridge.doctrine.metadata_load_interceptor` | `goaop.doctrine.metadata_load_interceptor` |
+| `goaop.cache.warmer`          | `Go\Symfony\GoAopBundle\CacheWarmer\AspectCacheWarmer` |
+| `goaop.command.*`             | the framework classes, `Go\Console\Command\*`         |
+| `goaop.bridge.doctrine.metadata_load_interceptor` | `Go\Bridge\Doctrine\MetadataLoadInterceptor` |
 
 Aspects are still services tagged `goaop.aspect`, and autoconfiguration still tags every service
 implementing `Go\Aop\Aspect`. They are no longer registered as instances: the aspect container knows
@@ -82,13 +83,15 @@ Cache and deployment
 
 - The cache warmer is optional now (`cache:warmup`, `cache:clear`); the first request with a cold cache
   no longer weaves the whole application.
-- `cache:clear` warms the new cache up in a fresh process. Nothing to configure, `proc_open` must be available.
-- A `bootstrap.php` file is dumped into the AOP cache directory: use it as the loader of `vendor/bin/aspect`
-  and require it from `config/preload.php` before the container preload file (see the README).
+- `cache:clear` builds the new AOP cache next to the running one, in the new cache directory, without touching
+  the directory the running kernel uses.
+- With opcache preloading, boot the kernel in `config/preload.php` before the container preload file, so that
+  the woven classes are preloaded (see the README).
 - For production, enable `features: [PREBUILT_CACHE]` and build the cache on deployment.
 
 Console
 -------
 
-The commands keep their names (`cache:warmup:aop`, `debug:aspect`, `debug:advisor`) and `debug:weaving`
-is new. None of them takes the `loader` argument.
+The commands of the framework are registered as they are (`cache:warmup:aop`, `debug:aspect`, `debug:advisor`,
+and the new `debug:weaving`): inside the application they use the running kernel, the `loader` argument is
+omitted. The bundle no longer ships command classes of its own.

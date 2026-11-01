@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Go\Symfony\GoAopBundle\Tests;
 
 use Go\Bridge\Doctrine\MetadataLoadInterceptor;
+use Go\Console\Command\CacheWarmupCommand;
+use Go\Core\AspectContainer;
+use Go\Core\AspectKernel;
 use Go\Symfony\GoAopBundle\CacheWarmer\AspectCacheWarmer;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\AspectCollectorPass;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\DoctrineIntegrationPass;
@@ -75,13 +78,15 @@ class GoAopBundleTest extends TestCase
         $this->assertSame(64, $options['features']);
         $this->assertSame(['anchor' => 'build', 'suffix' => '/go-aop'], $container->getParameter('goaop.cache_dir_anchor'));
 
-        $kernel = $container->getDefinition('goaop.aspect_kernel');
+        $kernel = $container->getDefinition(AspectKernel::class);
         $this->assertSame(AspectSymfonyKernel::class, $kernel->getClass());
         $this->assertSame([AspectSymfonyKernel::class, 'create'], $kernel->getFactory());
         $this->assertTrue($kernel->isPublic());
-        $this->assertTrue($container->hasDefinition('goaop.cache_warmer'));
-        $this->assertSame(AspectCacheWarmer::class, $container->getDefinition('goaop.cache_warmer')->getClass());
-        $this->assertFalse($container->hasDefinition('goaop.doctrine.metadata_load_interceptor'));
+        $this->assertTrue($container->hasDefinition(AspectContainer::class));
+        $this->assertTrue($container->hasDefinition(AspectCacheWarmer::class));
+        $this->assertTrue($container->hasDefinition(CacheWarmupCommand::class));
+        $this->assertSame([[]], $container->getDefinition(CacheWarmupCommand::class)->getTag('console.command'));
+        $this->assertFalse($container->hasDefinition(MetadataLoadInterceptor::class));
 
         $autoconfigured = $container->getAutoconfiguredInstanceof();
         $this->assertArrayHasKey(\Go\Aop\Aspect::class, $autoconfigured);
@@ -92,7 +97,7 @@ class GoAopBundleTest extends TestCase
     {
         $container = $this->loadExtension(['kernel_class' => CustomAspectKernel::class]);
 
-        $kernel = $container->getDefinition('goaop.aspect_kernel');
+        $kernel = $container->getDefinition(AspectKernel::class);
         $this->assertSame(CustomAspectKernel::class, $kernel->getClass());
         $this->assertSame([CustomAspectKernel::class, 'create'], $kernel->getFactory());
         $this->assertSame(CustomAspectKernel::class, $container->getParameter('goaop.kernel_class'));
@@ -102,15 +107,14 @@ class GoAopBundleTest extends TestCase
     {
         $container = $this->loadExtension(['cache_warmer' => false]);
 
-        $this->assertFalse($container->hasDefinition('goaop.cache_warmer'));
+        $this->assertFalse($container->hasDefinition(AspectCacheWarmer::class));
     }
 
     public function testDoctrineIntegrationIsEnabledWithDoctrineBundle(): void
     {
         $container = $this->loadExtension([], ['GoAopBundle' => GoAopBundle::class, 'DoctrineBundle' => 'Doctrine\Bundle\DoctrineBundle\DoctrineBundle']);
 
-        $listener = $container->getDefinition('goaop.doctrine.metadata_load_interceptor');
-        $this->assertSame(MetadataLoadInterceptor::class, $listener->getClass());
+        $listener = $container->getDefinition(MetadataLoadInterceptor::class);
         $this->assertSame([['event' => 'loadClassMetadata']], $listener->getTag('doctrine.event_listener'));
         $this->assertTrue($container->getParameter('.goaop.doctrine'));
     }
@@ -119,7 +123,7 @@ class GoAopBundleTest extends TestCase
     {
         $container = $this->loadExtension(['doctrine' => false], ['GoAopBundle' => GoAopBundle::class, 'DoctrineBundle' => 'Doctrine\Bundle\DoctrineBundle\DoctrineBundle']);
 
-        $this->assertFalse($container->hasDefinition('goaop.doctrine.metadata_load_interceptor'));
+        $this->assertFalse($container->hasDefinition(MetadataLoadInterceptor::class));
         $this->assertFalse($container->hasParameter('.goaop.doctrine'));
     }
 
@@ -132,8 +136,8 @@ class GoAopBundleTest extends TestCase
 
         $container->compile();
 
-        $this->assertTrue($container->hasDefinition('goaop.aspect_kernel'));
-        $locator = $container->getDefinition('goaop.aspect_kernel')->getArgument(1);
+        $this->assertTrue($container->hasDefinition(AspectKernel::class));
+        $locator = $container->getDefinition(AspectKernel::class)->getArgument(1);
         if ($locator instanceof \Symfony\Component\DependencyInjection\Reference) {
             $locator = $container->getDefinition((string) $locator);
         }

@@ -59,12 +59,14 @@ class ConsoleCommandsTest extends FunctionalTestCase
         $this->assertStringContainsString('Weaving is stable', $tester->getDisplay());
     }
 
-    public function testCommandsTakeNoLoaderArgument(): void
+    public function testFrameworkCommandsAreRegisteredAsTheyAre(): void
     {
         $tester = $this->runCommand(['command' => 'help', 'command_name' => 'cache:warmup:aop']);
 
-        $this->assertStringNotContainsString('loader', $tester->getDisplay());
+        // The loader argument of the framework commands is optional: the kernel of the application is used
+        $this->assertStringContainsString('[<loader>]', $tester->getDisplay());
         $this->assertStringContainsString('--fail-fast', $tester->getDisplay());
+        $this->assertStringContainsString('--cache-dir', $tester->getDisplay());
     }
 
     /**

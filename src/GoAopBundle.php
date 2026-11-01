@@ -14,6 +14,8 @@ namespace Go\Symfony\GoAopBundle;
 
 use Go\Aop\Aspect;
 use Go\Bridge\Doctrine\MetadataLoadInterceptor;
+use Go\Core\AspectKernel;
+use Go\Symfony\GoAopBundle\CacheWarmer\AspectCacheWarmer;
 use Go\Symfony\GoAopBundle\DataCollector\AspectDataCollector;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\AspectCollectorPass;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\DoctrineIntegrationPass;
@@ -166,22 +168,22 @@ final class GoAopBundle extends AbstractBundle
         $container->parameters()->set('goaop.kernel_class', $config['kernel_class']);
         $container->parameters()->set('goaop.cache_dir_anchor', KernelOptionsResolver::cacheDirAnchor($config['cache_dir']));
 
-        $builder->getDefinition('goaop.aspect_kernel')
+        $builder->getDefinition(AspectKernel::class)
             ->setClass($config['kernel_class'])
             ->setFactory([$config['kernel_class'], 'create']);
 
         $builder->registerForAutoconfiguration(Aspect::class)->addTag(AspectCollectorPass::ASPECT_TAG);
 
         if ($config['cache_warmer'] !== true) {
-            $builder->removeDefinition('goaop.cache_warmer');
+            $builder->removeDefinition(AspectCacheWarmer::class);
         }
 
         $bundles = $builder->getParameter('kernel.bundles');
         $bundles = is_array($bundles) ? $bundles : [];
 
         if (isset($bundles['WebProfilerBundle'])) {
-            $builder->register('goaop.data_collector', AspectDataCollector::class)
-                ->addArgument(new Reference('goaop.aspect_kernel'))
+            $builder->register(AspectDataCollector::class)
+                ->addArgument(new Reference(AspectKernel::class))
                 ->addTag('data_collector', ['template' => '@GoAop/Collector/aspect.html.twig', 'id' => AspectDataCollector::NAME, 'priority' => 240]);
         }
 
@@ -190,7 +192,7 @@ final class GoAopBundle extends AbstractBundle
             if (!class_exists(MetadataLoadInterceptor::class)) {
                 throw new LogicException('The Doctrine integration of GoAopBundle needs the Doctrine bridge of goaop/framework, update the framework.');
             }
-            $builder->register('goaop.doctrine.metadata_load_interceptor', MetadataLoadInterceptor::class)
+            $builder->register(MetadataLoadInterceptor::class)
                 ->addTag('doctrine.event_listener', ['event' => 'loadClassMetadata']);
             $builder->setParameter('.goaop.doctrine', true);
         }
@@ -202,7 +204,7 @@ final class GoAopBundle extends AbstractBundle
             throw new LogicException('GoAopBundle can not boot without a container.');
         }
         // Initializes the aspect kernel: everything loaded from now on goes through the weaver
-        $this->container->get('goaop.aspect_kernel');
+        $this->container->get(AspectKernel::class);
     }
 
     /**

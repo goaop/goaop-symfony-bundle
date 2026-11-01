@@ -36,8 +36,7 @@
         "symfony/dependency-injection": "^7.4 || ^8.0",
         "symfony/error-handler": "^7.4 || ^8.0",
         "symfony/framework-bundle": "^7.4 || ^8.0",
-        "symfony/http-kernel": "^7.4 || ^8.0",
-        "symfony/process": "^7.4 || ^8.0"
+        "symfony/http-kernel": "^7.4 || ^8.0"
     },
     "require-dev": {
         "doctrine/doctrine-bundle": "^2.13 || ^3.0",
@@ -49,6 +48,7 @@
         "symfony/css-selector": "^7.4 || ^8.0",
         "symfony/dom-crawler": "^7.4 || ^8.0",
         "symfony/filesystem": "^7.4 || ^8.0",
+        "symfony/process": "^7.4 || ^8.0",
         "symfony/twig-bundle": "^7.4 || ^8.0",
         "symfony/web-profiler-bundle": "^7.4 || ^8.0",
         "symfony/yaml": "^7.4 || ^8.0"
