@@ -55,9 +55,11 @@ final class AspectCacheWarmer implements CacheWarmerInterface
     {
         $targetDir = $this->resolveTargetDir($cacheDir, $buildDir ?? $cacheDir);
         $output    = new BufferedOutput();
-        $warmer    = new CacheWarmer($this->aspectKernel, $output);
+        // The directory of the running kernel is warmed up in place, any other one is built next to it
+        $otherDir = self::isSameDirectory($targetDir, $this->aspectKernel->getOptions()['cacheDir']) ? null : $targetDir;
+        $warmer   = new CacheWarmer($this->aspectKernel, $output, cacheDir: $otherDir);
 
-        $errors = $warmer->warmUp(self::isSameDirectory($targetDir, $this->aspectKernel->getOptions()['cacheDir']) ? null : $targetDir);
+        $errors = $warmer->warmUp();
         if ($errors > 0) {
             throw new RuntimeException(sprintf(
                 "Go! AOP failed to weave %d file(s) into \"%s\":\n%s",
