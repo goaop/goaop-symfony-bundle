@@ -53,6 +53,16 @@ class GoAopBundleTest extends TestCase
         new GoAopBundle()->build($container);
     }
 
+    public function testTheOrderingErrorTellsWhichLineToMove(): void
+    {
+        $container = $this->createContainerBuilder(['FrameworkBundle' => FrameworkBundle::class, 'GoAopBundle' => GoAopBundle::class]);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Move the line "Go\Symfony\GoAopBundle\GoAopBundle::class => [\'all\' => true]," to the top of the array returned by config/bundles.php');
+
+        new GoAopBundle()->build($container);
+    }
+
     public function testInternalComponentBundlesMayPrecedeTheBundle(): void
     {
         $container = $this->createContainerBuilder(
