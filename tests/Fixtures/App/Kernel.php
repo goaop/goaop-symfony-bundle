@@ -26,6 +26,7 @@ use Symfony\Component\HttpKernel\Kernel as BaseKernel;
  *  - "doctrine": debug mode with DoctrineBundle and an attribute-mapped entity
  *  - "profiler": debug mode with the web profiler and a /greet route
  *  - "misplaced": GoAopBundle registered after FrameworkBundle, to test the ordering check
+ *  - "signatures": debug mode with the woven classes of src/Signature and their aspect (DebugClassLoader checks)
  *  - "generated": debug mode, the Admin directory is woven too; its class extends a class generated into the cache
  *    directory that Composer can not locate (see BaseClassGenerator)
  *  - "generated_excluded": the "generated" environment with the Admin directory in exclude_paths
@@ -157,9 +158,14 @@ final class Kernel extends BaseKernel
 
         $services = $container->services()->defaults()->autowire()->autoconfigure();
         $services->load('Go\\Symfony\\GoAopBundle\\Tests\\Fixtures\\App\\', __DIR__ . '/src/')
-            ->exclude([__DIR__ . '/src/Entity']);
+            ->exclude([__DIR__ . '/src/Entity', __DIR__ . '/src/Signature']);
         $services->get(Service\GreetingService::class)->public();
         $services->get(Service\Recorder::class)->public();
+
+        if ($this->environment === 'signatures') {
+            $services->set(Signature\SignatureAspect::class);
+            $services->set(Signature\CardGateway::class)->arg('$name', 'card')->public();
+        }
         if (str_starts_with($this->environment, 'generated')) {
             $services->set(Admin\ReportAspect::class);
             $services->set(Admin\ReportController::class)->public();
