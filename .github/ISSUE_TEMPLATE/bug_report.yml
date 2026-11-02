@@ -1,0 +1,31 @@
+name: Bug report
+description: Something in the bundle does not work as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: How to reproduce
+      description: Aspect, pointcut, `go_aop` configuration and the command or request that shows the problem
+      render: php
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: PHP 8.4.x, Symfony 7.4.x, goaop/framework 4.x-dev, goaop/goaop-symfony-bundle 4.x-dev
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output of `bin/console debug:aspect` and `bin/console cache:warmup:aop -vvv`
+      render: shell

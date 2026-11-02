@@ -1,4 +1,5 @@
 /vendor/
-/build/
-/Tests/Fixtures/project/var/cache/*
-/Tests/Fixtures/project/var/logs/*
+composer.lock
+/.phpunit.cache/
+.phpunit.result.cache
+/tests/Fixtures/App/var/

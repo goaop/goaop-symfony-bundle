@@ -1,183 +1,267 @@
-GoAopBundle
-==============
+# Go! AOP Symfony bundle
 
-[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/goaop/goaop-symfony-bundle/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/goaop/goaop-symfony-bundle/?branch=master)
-[![Travis branch](https://img.shields.io/travis/goaop/goaop-symfony-bundle/master.svg)](https://travis-ci.org/goaop/goaop-symfony-bundle.svg?branch=master)
+[![CI](https://github.com/goaop/goaop-symfony-bundle/actions/workflows/ci.yml/badge.svg)](https://github.com/goaop/goaop-symfony-bundle/actions/workflows/ci.yml)
+![PHPStan Badge](https://img.shields.io/badge/PHPStan-level%20max-brightgreen.svg?style=flat&link=https%3A%2F%2Fphpstan.org%2Fuser-guide%2Frule-levels)
 [![GitHub release](https://img.shields.io/github/release/goaop/goaop-symfony-bundle.svg)](https://github.com/goaop/goaop-symfony-bundle/releases/latest)
-[![Minimum PHP Version](http://img.shields.io/badge/php-%3E%3D%205.5-8892BF.svg)](https://php.net/)
+[![Total Downloads](https://img.shields.io/packagist/dt/goaop/goaop-symfony-bundle.svg)](https://packagist.org/packages/goaop/goaop-symfony-bundle)
+[![Monthly Downloads](https://img.shields.io/packagist/dm/goaop/goaop-symfony-bundle.svg)](https://packagist.org/packages/goaop/goaop-symfony-bundle)
+[![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%208.4-8892BF.svg)](https://www.php.net/supported-versions.php)
+[![Symfony](https://img.shields.io/badge/Symfony-7.4%20%7C%208.x-000000.svg?logo=symfony)](https://symfony.com)
 [![License](https://img.shields.io/packagist/l/goaop/goaop-symfony-bundle.svg)](https://packagist.org/packages/goaop/goaop-symfony-bundle)
+[![Sponsor](https://img.shields.io/badge/Sponsor-❤️-lightgray?style=flat&logo=github)](https://github.com/sponsors/lisachenko)
 
-The GoAopBundle adds support for Aspect-Oriented Programming via Go! AOP Framework for Symfony2 applications.
-**Symfony 3.4 and upper versions are not supported!** Global rewrite of bundle is required to make it working for newer versions of Symfony.
+Aspect-Oriented Programming for Symfony applications, powered by the [Go! AOP framework](https://github.com/goaop/framework) 4.x. Write an aspect, give it a pointcut, and the bundle weaves it into your services as they are loaded — no base classes, no decorators to register, no proxies to maintain, no `eval()`, no PHP extension.
 
-Overview
---------
-
-Aspect-Oriented Paradigm allows to extend the standard Object-Oriented Paradigm with special instruments for effective solving of cross-cutting concerns in your application. This code is typically present everywhere in your application (for example, logging, caching, monitoring, etc) and there is no easy way to fix this without AOP.
-
-AOP defines new instruments for developers, they are:
-
- * Joinpoint - place in your code that can be used for interception, for example, execution of single public method or accessing of single object property.
- * Pointcut is a list of joinpoints defined with a special regexp-like expression for your source code, for example, all public and protected methods in the concrete class or namespace.
- * Advice is an additional callback that will be called before, after or around concrete joinpoint. For PHP each advice is represented as a `\Closure` instance, wrapped into the interceptor object.
- * Aspect is a special class that combines pointcuts and advices together, each pointcut is defined as an annotation and each advice is a method inside this aspect.
- 
- You can read more about AOP in different sources, there are good articles for Java language and they can be applied for PHP too, because it's general paradigm.
-
-Installation
-------------
-
-GoAopBundle can be easily installed with composer. Just ask a composer to download the bundle with dependencies by running the command:
-
-```bash
-$ composer require goaop/goaop-symfony-bundle
-```
-
-Versions 1.x are for Symfony >=2.0,<2.7
-Versions 2.x(master) are for Symfony >= 2.7 and 3.x
-
-Then enable the bundle in the kernel:
 ```php
-// app/AppKernel.php
-
-public function registerBundles()
-{
-    $bundles = array(
-        new Go\Symfony\GoAopBundle\GoAopBundle(),
-        // ...
-    );
-}
-```
-Make sure that bundle is the first item in this list. This is required for the AOP engine to work correctly.
-
-Configuration
--------------
-
-Configuration for bundle is required for additional tuning of AOP kernel and source code whitelistsing/blacklisting.
-
-```yaml
-# app/config/config.yml
-go_aop:
-    # This setting enables or disables an automatic AOP cache warming in the application.
-    # By default, cache_warmer is enabled (true), disable it only if you have serious issues with 
-    # cache warming process.
-    cache_warmer: true
-
-    # This setting enables or disables workaround for weaving of Doctrine ORM entities. By default,
-    # it is disabled. If you are using Doctrine ORM and you are using AOP to weave Doctrine entities,
-    # enable this feature. For details about this known issue, see https://github.com/goaop/framework/issues/327
-    doctrine_support: false
-
-    # Additional settings for the Go! AOP kernel initialization
-    options:
-        # Debug mode for the AOP, enable it for debugging and switch off for production mode to have a
-        # better runtime performance for your application
-        debug: %kernel.debug%
-        
-        # Application root directory, AOP will be applied ONLY to the files in this directory, by default it's
-        # src/ directory of your application.
-        app_dir: "%kernel.root_dir%/../src"
-
-        # AOP cache directory where all transformed files will be stored.
-        cache_dir: %kernel.cache_dir%/aspect
-
-        # Whitelist is array of directories where AOP should be enabled, leave it empty to process all files
-        include_paths: []
-        
-        # Exclude list is array of directories where AOP should NOT be enabled, leave it empty to process all files
-        exclude_paths: []
-        
-        # AOP container class name can be used for extending AOP engine or services adjustment
-        container_class: ~
-        
-        # List of enabled features for AOP kernel, this allows to enable function interception, support for
-        # read-only file systems, etc. Each item should be a name of constant from the `Go\Aop\Features` class.
-        features: []
-      
-```
-
-XML format is supported for configuration of this bundle as well, for XML format please use provided
-[XML schema file](Resources/config/schema/configuration-1.0.0.xsd).
-
-Defining new aspects
---------------------
-
-Aspects are services in the Symfony2 apllications and loaded into the AOP container with the help of compiler pass that collects all services tagged with `goaop.aspect` tag. Here is an example how to implement a logging aspect that will log information about public method invocations in the src/ directory.
-
-
-Definition of aspect class with pointuct and logging advice
-```php
-<?php
-
 namespace App\Aspect;
 
 use Go\Aop\Aspect;
 use Go\Aop\Intercept\MethodInvocation;
-use Go\Lang\Annotation\Before;
+use Go\Lang\Attribute\Around;
 use Psr\Log\LoggerInterface;
 
-/**
- * Application logging aspect
- */
-class LoggingAspect implements Aspect
+final class TimingAspect implements Aspect
 {
-    /**
-     * @var LoggerInterface
-     */
-    private $logger;
+    public function __construct(private readonly LoggerInterface $logger) {}
 
-    public function __construct(LoggerInterface $logger)
+    #[Around('execution(public App\Service\**->*(*))')]
+    public function measure(MethodInvocation $invocation): mixed
     {
-        $this->logger = $logger;
-    }
-
-    /**
-     * Writes a log info before method execution
-     *
-     * @param MethodInvocation $invocation
-     * @Before("execution(public **->*(*))")
-     */
-    public function beforeMethod(MethodInvocation $invocation)
-    {
-        $this->logger->info($invocation, $invocation->getArguments());
+        $start = hrtime(true);
+        try {
+            return $invocation->proceed();
+        } finally {
+            $this->logger->info('{method} took {ms} ms', [
+                'method' => (string) $invocation,
+                'ms'     => (hrtime(true) - $start) / 1e6,
+            ]);
+        }
     }
 }
 ```
 
-Registration of aspect in the container:
+That is the whole integration: the class implements `Go\Aop\Aspect`, so autoconfiguration registers it as an aspect, autowiring gives it its logger, and every public method of every class below `App\Service` is timed from the next request on.
 
-```yaml
-services:
-    logging.aspect:
-        class: App\Aspect\LoggingAspect
-        arguments: ["@logger"]
-        tags:
-            - { name: goaop.aspect }
+## Why Aspect-Oriented Programming in Symfony?
+
+Some logic belongs to no single class and still ends up in hundreds of them: logging, metrics, caching, transactions, authorization checks, retries, rate limits, audit trails. Symfony offers event listeners for the HTTP lifecycle and decorators for single services; AOP generalizes both to **any method of your own code**. You describe *where* with a pointcut expression and *what* with an advice, and the engine applies it, so your services stay business logic.
+
+### ✨ Highlights
+
+- 🪡 **Transparent weaving.** Classes are transformed at load time into a proxy backed by the original code as a trait. Constructor injection, autowiring, `new`, `instanceof`, `final`, `readonly`, enums, static and private methods, property hooks: everything keeps working, and the woven code is plain PHP you can read in the cache directory.
+- 🏷️ **PHP 8 attributes.** `#[Before]`, `#[After]`, `#[Around]`, `#[AfterThrowing]`, `#[Pointcut]` and `#[DeclareParents]`, with a rich pointcut language: `execution(public App\Service\**->*(*))`, `@execution(App\Attribute\Cached)`, `access(App\Entity\*->email)`, `initialization(App\Model\*)`, `within(...)`, `&&`, `||`, `!`.
+- 🧩 **Symfony native.** Aspects are ordinary autowired services, discovered by autoconfiguration (or the `goaop.aspect` tag). The aspect container delegates to the Symfony container, the aspect kernel and container are autowirable services, and the bundle configures Symfony's container dumper so that nothing bypasses the weaver.
+- 🚀 **Production ready.** `cache:warmup` and `cache:clear` weave the whole application ahead of time, also when `cache:clear` builds the new cache next to the running one. With `PREBUILT_CACHE` the runtime trusts the deployed cache completely: no file system checks, works on read-only file systems, friendly to opcache and preloading.
+- 🔬 **Observable.** A **web profiler panel** lists the aspects and their advisors, the woven classes used by the request and the classes that were loaded before weaving was possible. `debug:aspect`, `debug:advisor` and `debug:weaving` give the same answers on the command line.
+- 🗄️ **Doctrine ORM aware.** Entities are discovered through their woven classes, so an aspect on an entity method works, and intercepted entity properties are validated against the ORM configuration at metadata load time.
+- ✅ **Tested and typed.** PHPStan at level max, and an end-to-end test suite that boots a real Symfony application in debug and production mode, runs `cache:clear`, renders the profiler panel and maps a Doctrine entity.
+
+## Requirements
+
+- PHP >= 8.4
+- Symfony 7.4 or 8.x
+- goaop/framework 4.x (attribute-based aspects)
+
+## Installation
+
+```bash
+composer require goaop/goaop-symfony-bundle
 ```
 
-If you're using Symfony 3.3+ with autowired and autoconfigured services, your aspects will be 
-registered automatically.
+> **Note**
+> Until goaop/framework 4.0 is tagged, the bundle depends on the unreleased `4.0-dev` line, so your application's `composer.json` needs:
+>
+> ```json
+> "minimum-stability": "dev",
+> "prefer-stable": true
+> ```
 
-Known issues and workarounds
-----------------------------
+Register the bundle as the **first** entry of `config/bundles.php`. Weaving only applies to classes loaded after the aspect kernel is initialized, and bundles boot in registration order, so this is enforced: the container build fails with a clear message otherwise.
 
-- By default, it is not possible to weave Doctrine ORM entities without additional configuration
-(see [https://github.com/goaop/framework/issues/327](https://github.com/goaop/framework/issues/327)).
-However, this bundle delivers workaround that can be easily enabled in configuration (see section
-about configuration in text above). Workaround is disabled by default in order to save some performances.
-- It is possible to get into circular reference issue when registering an aspect which has dependency on
-service that uses weaved class, or depends on service that has weaved class. Currently, detection of
-such scenario is not implemented, however, there are two workarounds:
-    - Instead of injecting weaved service in aspect, you can inject either service container or service
-      locator (see [https://symfony.com/doc/master/service_container/service_locators.html](https://symfony.com/doc/master/service_container/service_locators.html)).
-    - Instead of injecting weaved service in aspect, you can define weaved service as "lazy" that will
-      inject its lazy loading proxy (see [https://symfony.com/doc/current/service_container/lazy_services.html](https://symfony.com/doc/current/service_container/lazy_services.html)).
+```php
+// config/bundles.php
+return [
+    Go\Symfony\GoAopBundle\GoAopBundle::class => ['all' => true],
+    Symfony\Bundle\FrameworkBundle\FrameworkBundle::class => ['all' => true],
+    // ...
+];
+```
 
+Optionally create `config/packages/go_aop.yaml`; the defaults below weave the `src/` directory in the mode of the kernel, and enable the prebuilt cache in production:
 
+```yaml
+go_aop:
+    include_paths: ['%kernel.project_dir%/src']
 
-License
--------
+when@prod:
+    go_aop:
+        features: [PREBUILT_CACHE]
+```
 
-This bundle is under the MIT license. See the complete license in the bundle:
+## Quick start
 
-    Resources/meta/LICENSE
+1. **Write an aspect.** A service implementing `Go\Aop\Aspect` whose public methods carry advice attributes (see the example at the top). Dependencies are injected by the container as usual.
+2. **Check what it matches.**
+   ```bash
+   bin/console debug:aspect                                              # aspects with their pointcuts and advisors
+   bin/console debug:advisor --advisor='App\Aspect\TimingAspect->measure' # the joinpoints an advisor matches
+   ```
+3. **Use your services.** Classes below the include paths are woven on first load in debug mode (and re-woven when their source or an aspect changes). Open the **Go! AOP** panel of the web profiler to see the woven classes of a request.
+4. **Deploy.** `cache:clear` or `cache:warmup` weaves everything ahead of time; enable `PREBUILT_CACHE` in production (see [Deployment](#deployment)).
+
+The pointcut language, the advice types and the joinpoint API are documented in the framework: [pointcuts](https://github.com/goaop/framework/blob/master/docs/pointcuts.md), [advices](https://github.com/goaop/framework/blob/master/docs/advices.md), [configuration](https://github.com/goaop/framework/blob/master/docs/configuration.md).
+
+## How it works
+
+1. **Boot.** `GoAopBundle::boot()` runs before any other bundle boots and creates the `goaop.aspect_kernel` service. The kernel hooks the Go! AOP class loader into Composer's autoloader (lifting Symfony's `DebugClassLoader` for a moment and putting it back on top) and registers the aspects.
+2. **Aspects by class.** A compiler pass collects every service tagged `goaop.aspect` into a service locator keyed by the aspect class. The weaver only needs the classes: an aspect is instantiated by the Symfony container when one of its advices runs for the first time, never during weaving or cache warm-up. The aspect container also delegates to the Symfony container, so `$aspectContainer->get(LoggerInterface::class)` works where the framework documentation uses it.
+3. **Weaving.** Every class loaded from an include path goes through the weaver. In debug mode a stream filter transforms the source on the fly and caches the result; in production the woven class map is handed to Composer, so woven classes resolve natively to their cached files.
+4. **No shortcuts around the class loader.** Symfony's container dumper can `include_once` the source files of services directly (`.container.dumper.inline_class_loader`, on by default in debug mode). The bundle turns it off unless your configuration sets it, because such an include bypasses the class loader and therefore the weaving.
+
+The process that compiles the container has to load the service classes before the bundle boots, so the request (or command) that rebuilds the container runs those classes unwoven once. The profiler panel lists them as *classes loaded before weaving*; the next request is fully woven. Deployments are not affected: `cache:clear` and `cache:warmup` build the container and the AOP cache together.
+
+## Configuration
+
+`bin/console config:dump-reference go_aop` prints the reference. All options:
+
+```yaml
+go_aop:
+    # Development mode: changed sources and aspects are woven again on the next request,
+    # breakpoints work in the original files. Keep it off in production.
+    debug: '%kernel.debug%'
+
+    # Application root: only files below it can be woven, cache paths mirror source paths relative to it.
+    app_dir: '%kernel.project_dir%'
+
+    # Directory for woven sources, proxies and advisor caches. Anchor it on %kernel.cache_dir%
+    # or %kernel.build_dir% so that cache:clear and cache:warmup manage it.
+    cache_dir: '%kernel.cache_dir%/aop'
+
+    # Permissions of the cache files: an octal literal (0o770), an octal string ("0770") or an integer.
+    # Defaults to 0770 minus the umask.
+    cache_file_mode: ~
+
+    # Directories that are woven. Keep the list narrow: weaving vendor code is slow and rarely needed.
+    include_paths: ['%kernel.project_dir%/src']
+
+    # Directories below the include paths that are never woven (the cache directory and the
+    # framework itself are always excluded).
+    exclude_paths: []
+
+    # Framework features, by the name of the Go\Aop\Features constant:
+    #   PREBUILT_CACHE     trust the deployed cache completely, never check or write it at runtime
+    #   INTERCEPT_INCLUDES route include/require in woven files through the weaver (legacy code)
+    features: []
+
+    # Aspect kernel class; extend Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel to customize
+    # the transformation pipeline.
+    kernel_class: Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel
+
+    # Weave every file below the include paths during cache:warmup and cache:clear.
+    cache_warmer: true
+
+    # Doctrine ORM integration, enabled automatically when DoctrineBundle is registered.
+    doctrine: ~
+```
+
+Environment variables work as everywhere in Symfony, e.g. `debug: '%env(bool:GOAOP_DEBUG)%'`. Function and `initialization()` pointcuts need no feature flag: the pointcuts enable their machinery themselves.
+
+## Console commands
+
+| Command | Purpose |
+|---|---|
+| `cache:warmup:aop [--fail-fast] [--cache-dir=DIR]` | Weaves every file below the include paths into the cache. Fails when a file cannot be woven. The same warm-up runs as a cache warmer of `cache:warmup` and `cache:clear`. |
+| `debug:aspect [--aspect=FQCN]` | Lists the aspects with their pointcuts and advisors. |
+| `debug:advisor [--advisor=ID]` | Lists the advisors; with `--advisor` the joinpoints that advisor matches. The quickest way to check a pointcut expression. |
+| `debug:weaving [-v]` | Weaves the application twice and reports proxies that differ, which points to a non-deterministic aspect. |
+
+These are the commands of the framework itself, registered in the console of the application: they work on the running aspect kernel, so the loader argument of `vendor/bin/aspect` is omitted. `cache:warmup:aop --cache-dir=DIR` builds the cache in another directory, from scratch, which is what the cache warmer does during `cache:clear`.
+
+## Deployment
+
+### Warm up the cache
+
+`cache:clear` and `cache:warmup` weave the application through an optional cache warmer. `cache:clear` builds the new cache next to the running one and renames it afterwards; the warmer builds the AOP cache in that new directory, from scratch, while the running kernel keeps its own, so the usual deployment steps need no change:
+
+```bash
+composer install --no-dev --optimize-autoloader   # runs cache:clear through the auto-scripts
+# or explicitly
+bin/console cache:clear
+bin/console cache:warmup
+```
+
+The warm-up fails when a file cannot be woven, so a deployment stops instead of shipping an incomplete cache. Use `cache:warmup:aop --fail-fast -vvv` to see the file and the error.
+
+### Trust the cache in production
+
+With `features: [PREBUILT_CACHE]` the runtime skips every cache-related file system check (directory probes, `filemtime` comparisons, aspect freshness) and never writes to the cache directory. Rebuild the cache on every deployment. This is the recommended production setting, and it is what makes read-only file systems and immutable images work:
+
+```yaml
+when@prod:
+    go_aop:
+        features: [PREBUILT_CACHE]
+```
+
+If your `kernel.build_dir` differs from `kernel.cache_dir` (read-only build directory, writable cache directory), anchor the AOP cache on the directory you build at deploy time: `cache_dir: '%kernel.build_dir%/aop'`.
+
+### Opcache preloading
+
+Symfony's preload file loads the classes of your services through the autoloader, so without the aspect kernel it would preload the original classes, and a preloaded class can not be woven anymore. Boot the kernel in `config/preload.php` before requiring the container preload file: booting initializes the aspect kernel, and the woven classes are preloaded instead.
+
+```php
+// config/preload.php
+use App\Kernel;
+
+require dirname(__DIR__).'/vendor/autoload.php';
+
+if (file_exists(dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php')) {
+    (new Kernel('prod', false))->boot();
+    require dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php';
+}
+```
+
+## Doctrine ORM
+
+When DoctrineBundle is registered (or `doctrine: true` is set), the bundle:
+
+- replaces the directory scan of every ORM attribute driver with `Go\Bridge\Doctrine\WovenEntityClassLocator`. Doctrine's own locator includes every entity file directly, which bypasses the class loader: an entity included that way loses its aspects for the rest of the request and, once loaded from the cache, disappears from `orm:validate-schema` and the migrations. The locator reads the class names from the sources and loads them through the class loader instead;
+- registers `Go\Bridge\Doctrine\MetadataLoadInterceptor` as a `loadClassMetadata` listener. An intercepted entity property (`access(...)` pointcut) is implemented with native property hooks, which the ORM supports with native lazy objects only; the listener reports such a configuration when the metadata loads instead of failing on the first lazy proxy.
+
+Entities must lie below an include path to be woven, and the aspects apply to them whether they are created by your code or hydrated by the ORM.
+
+## Web profiler
+
+With `symfony/web-profiler-bundle` installed, the toolbar shows the number of aspects, and the **Go! AOP** panel lists:
+
+- the aspects with their advisors, advice types and pointcut expressions;
+- the woven classes loaded during the request, with their proxy files;
+- the classes below the include paths that were loaded *before* the aspect kernel was initialized — the diagnostic for a bundle booting before GoAopBundle or for the request that rebuilt the container (the panel turns yellow);
+- the effective configuration of the kernel.
+
+## Extending
+
+- **Custom transformers.** Point `kernel_class` at a subclass of `Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel` and register your `SourceTransformer` or `NodeRewriter` services in `configureAop()` (see the [framework documentation](https://github.com/goaop/framework/blob/master/docs/configuration.md#extending-the-transformation-pipeline)).
+- **Autowirable services.** `Go\Core\AspectKernel` and `Go\Core\AspectContainer` are services, `goaop.aspect_kernel` is public. The aspect container is a PSR-11 container that falls back to the Symfony container for unknown ids.
+- **Aspects without autoconfiguration.** Tag the service with `goaop.aspect`:
+  ```yaml
+  services:
+      Acme\Audit\AuditAspect:
+          tags: [goaop.aspect]
+  ```
+  An aspect class is a singleton: registering it as two services is a compile error.
+
+## Troubleshooting
+
+- **"GoAopBundle must be the first bundle in config/bundles.php"** — move it above every other bundle (the internal component bundles of Symfony 8.1 are fine before it).
+- **An aspect does not apply.** Check `debug:advisor --advisor=...` first: it lists the joinpoints a pointcut matches. Then make sure the class lies below an include path and is not loaded before the bundle boots (profiler panel, *classes loaded before weaving*). Vendor code is only woven when its directory is an include path.
+- **Everything works in dev but not in prod.** The production cache is built at deploy time: run `cache:clear` or `cache:warmup`, and keep `PREBUILT_CACHE` on only when the deployment rebuilds the cache. Check that nothing defines `.container.dumper.inline_class_loader: true`, and that `config/preload.php` boots the kernel before the container preload file when preloading is enabled.
+- **Circular reference when an aspect depends on a service it advises.** The aspect is created when the first advice runs, which may happen while the Symfony container is still building that very service. Inject a service locator or mark the woven service `lazy`.
+- **Exception handlers.** Exclude the classes that must be loadable when everything else failed (error handlers, the kernel) through `exclude_paths`.
+
+## Upgrading from 2.x
+
+See [UPGRADE-4.0.md](UPGRADE-4.0.md): configuration keys, service ids, attributes instead of annotations.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

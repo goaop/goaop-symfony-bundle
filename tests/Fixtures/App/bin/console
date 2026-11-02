@@ -1,0 +1,24 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Kernel;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\ErrorHandler\Debug;
+
+require dirname(__DIR__, 4) . '/vendor/autoload.php';
+
+$input = new ArgvInput();
+$env   = $input->getParameterOption(['--env', '-e'], $_SERVER['APP_ENV'] ?? 'test', true);
+$debug = $env !== 'prod' && !$input->hasParameterOption('--no-debug', true);
+
+if ($debug) {
+    // Enables the DebugClassLoader, like the Symfony runtime does in debug mode
+    Debug::enable();
+}
+
+$kernel      = new Kernel($env, $debug);
+$application = new Application($kernel);
+$application->run($input);
