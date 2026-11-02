@@ -40,6 +40,8 @@ composer test               # phpunit (boots the fixture app in tests/Fixtures/A
 composer analyse            # phpstan, level max
 ```
 
+The test suite (fixture application, environments, process isolation rules) is described in [tests/AGENTS.md](tests/AGENTS.md).
+
 ## Conventions
 
 - **Conventional Commits 1.0.0** for every commit message: `type(optional-scope): description`. Allowed types: `feat`, `fix`, `chore`, `ci`, `docs`, `test`, `refactor`, `build`. Breaking changes: `!` after the type/scope and a `BREAKING CHANGE:` footer.
