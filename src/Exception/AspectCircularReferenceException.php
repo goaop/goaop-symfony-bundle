@@ -29,7 +29,8 @@ final class AspectCircularReferenceException extends LogicException
     /**
      * @param class-string<Aspect> $aspectClass Class of the aspect being created
      * @param list<string>         $path        Calls from the creation of the aspect to its advice, outermost first
-     * @param Throwable            $previous    Error raised by the advice that ran on the aspect being created
+     * @param Throwable            $previous    Exception of the framework that stopped the advice before it ran on the
+     *                                          aspect being created
      */
     public function __construct(
         public readonly string $aspectClass,

@@ -40,6 +40,11 @@ class UnresolvableParentTest extends FunctionalTestCase
                 'Class ' . BaseClassGenerator::CLASS_NAME . ' was not found by locator',
                 $exception->getMessage(),
             );
+            $this->assertStringContainsString(
+                'make ' . BaseClassGenerator::CLASS_NAME . ' loadable by Composer',
+                $exception->getMessage(),
+                'The framework tells how to fix the failure at runtime too',
+            );
         }
     }
 
@@ -56,7 +61,8 @@ class UnresolvableParentTest extends FunctionalTestCase
             $this->assertStringContainsString('Go! AOP failed to weave 1 file(s)', $message);
             $this->assertStringContainsString('[ERR]: ' . self::projectDir() . '/Admin/ReportController.php', $message);
             $this->assertStringContainsString(BaseClassGenerator::CLASS_NAME . ' was not found by locator', $message);
-            $this->assertStringContainsString('go_aop.exclude_paths', $message);
+            $this->assertStringContainsString('In the bundle configuration, the excludePaths option is go_aop.exclude_paths.', $message);
+            $this->assertSame(1, substr_count($message, 'loadable by Composer'), 'The framework explains the failure once');
             $this->assertStringNotContainsString('[OK]', $message, 'Only the failed files are reported');
             $this->assertStringNotContainsString('Total ', $message, 'Only the failed files are reported');
         }

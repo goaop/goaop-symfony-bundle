@@ -264,7 +264,7 @@ With `symfony/web-profiler-bundle` installed, the toolbar shows the number of as
       #[Autowire(lazy: true)] private readonly Wallet $wallet,  // or #[AutowireServiceClosure(Wallet::class)], a service locator
   ) {}
   ```
-  or narrow the pointcut so that the aspect does not advise the creation of its own dependencies. An advice that does not read the properties of its aspect runs on the uninitialized aspect without an error: when in doubt, look for this pattern.
+  or narrow the pointcut so that the aspect does not advise the creation of its own dependencies. The framework stops the advice before it runs, also an advice that reads no property of its aspect.
 - **Exception handlers.** Exclude the classes that must be loadable when everything else failed (error handlers, the kernel) through `exclude_paths`.
 - **"Class ... was not found by locator"** — a class below the include paths depends on code Composer can not locate, see below.
 
@@ -280,7 +280,10 @@ It fails as soon as the class part of a pointcut matches the class (`App\Admin\*
 
 ```
 Go\Aop\Exception\WeavingException: Go\Instrument\Transformer\WeavingTransformer failed to transform
-/app/src/Admin/ReportController.php: Class Acme\Generated\BaseReportController was not found by locator
+/app/src/Admin/ReportController.php: Class Acme\Generated\BaseReportController was not found by locator. The weaver
+reads the parents, interfaces and traits of a class from their source files, which it finds through Composer: make
+Acme\Generated\BaseReportController loadable by Composer (...), or exclude the classes that depend on it from weaving
+with the excludePaths option.
 ```
 
 For a `class_alias()` file the message ends with `Class Acme\OldName was not found in the /path/to/alias.php` instead. The failure depends on what the process loaded before: the request (or command) that compiles the container loads the service classes and their ancestors first, so it often works there and fails on the next request, or only in a `cache:warmup` that finds the container already built.

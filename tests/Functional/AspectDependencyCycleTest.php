@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Go\Symfony\GoAopBundle\Tests\Functional;
 
-use Error;
+use Go\Aop\Exception\AspectCircularReferenceException as FrameworkCircularReferenceException;
 use Go\Aop\Proxy;
 use Go\Symfony\GoAopBundle\Exception\AspectCircularReferenceException;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Cycle\ClockAspect;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Cycle\Counter;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Cycle\Ledger;
+use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Cycle\Locksmith;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Cycle\Purse;
+use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Cycle\Safe;
+use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Cycle\SafeAspect;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Cycle\Scheduler;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Cycle\Vault;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Cycle\VaultAspect;
@@ -28,8 +31,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * An aspect is created by the container when one of its advices runs first. Depending on a woven service is
  * fine, but when creating a dependency runs an advice of the aspect, that advice would run on an aspect that
- * does not exist yet: the bundle reports the circular reference instead of the uninitialized property error
- * of the aspect that PHP raises.
+ * does not exist yet: the framework stops the advice, and the bundle reports the circular reference with the
+ * ways to inject the dependency lazily in Symfony.
  */
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]
@@ -101,8 +104,27 @@ class AspectDependencyCycleTest extends FunctionalTestCase
                 $exception->getMessage(),
             );
             $this->assertStringContainsString('#[Autowire(lazy: true)]', $exception->getMessage());
-            $this->assertInstanceOf(Error::class, $exception->getPrevious(), 'The error raised by the advice is kept');
+            $this->assertInstanceOf(FrameworkCircularReferenceException::class, $exception->getPrevious());
         }
+    }
+
+    public function testAdviceReadingNoPropertyOfTheAspectBeingCreatedIsReported(): void
+    {
+        $container = $this->bootCycleKernel();
+        $safe      = $container->get(Safe::class);
+        $this->assertInstanceOf(Safe::class, $safe);
+
+        try {
+            $safe->open();
+            $this->fail('Creating the aspect must fail');
+        } catch (AspectCircularReferenceException $exception) {
+            $this->assertSame(SafeAspect::class, $exception->aspectClass);
+            $this->assertSame(
+                [Locksmith::class . '->__construct()', Locksmith::class . '->cut()', SafeAspect::class . '->beforeCut()'],
+                $exception->path,
+            );
+        }
+        $this->assertSame(0, SafeAspect::$cuts, 'The advice did not run on the aspect being created');
     }
 
     public function testExceptionOfTheAspectConstructorIsNotReportedAsCircularReference(): void
