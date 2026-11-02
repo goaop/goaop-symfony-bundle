@@ -63,10 +63,6 @@ docs/readme-preload-section
 - Fill in the PR template; link the issue the PR addresses (`Closes #N`).
 - Squash-merge is preferred; the squash commit message must itself be a valid conventional commit (the PR title is used, hence the title check).
 
-## Testing notes
+## Testing
 
-- The suite boots a real Symfony application: `tests/Fixtures/App` (environments `test`, `prod`, `doctrine`, `profiler`, `misplaced` and `signatures`).
-- `Go\Core\AspectKernel` is a process-wide singleton that wraps the Composer class loader, so every test booting a kernel runs with `#[RunTestsInSeparateProcesses]` and `#[PreserveGlobalState(false)]`. `tests/bootstrap.php` gives every process a cache directory of its own (`APP_CACHE_DIR`).
-- The process that compiles the container loads the service classes before the bundle boots, so a test that needs woven services builds the container first in a separate process: `self::runConsole(['cache:warmup', '--no-optional-warmers'])`.
-- Weaving fixtures (`tests/Fixtures/App/src`) must never be autoloaded before the kernel boots: refer to them with `::class` only.
-- Until goaop/framework 4.0 is tagged, `composer.json` needs `minimum-stability: dev` with `prefer-stable: true`. To test against a local checkout of the framework, add a path repository to your local `composer.json` (do not commit it).
+The suite boots a real Symfony application (`tests/Fixtures/App`). How it is organized, its environments and the rules for writing tests are described in [tests/AGENTS.md](tests/AGENTS.md).
