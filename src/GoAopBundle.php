@@ -18,6 +18,7 @@ use Go\Core\AspectKernel;
 use Go\Symfony\GoAopBundle\CacheWarmer\AspectCacheWarmer;
 use Go\Symfony\GoAopBundle\DataCollector\AspectDataCollector;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\AspectCollectorPass;
+use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\ClassSignatureResourcePass;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\DoctrineIntegrationPass;
 use Go\Symfony\GoAopBundle\DependencyInjection\KernelOptionsResolver;
 use Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel;
@@ -63,6 +64,8 @@ final class GoAopBundle extends AbstractBundle
         // After the autoconfiguration passes (priority 100), which apply the "goaop.aspect" tag to aspects
         $container->addCompilerPass(new AspectCollectorPass());
         $container->addCompilerPass(new DoctrineIntegrationPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, -100);
+        // Last of all passes: replaces the reflection resources registered by the passes before it
+        $container->addCompilerPass(new ClassSignatureResourcePass(), PassConfig::TYPE_AFTER_REMOVING, ClassSignatureResourcePass::PRIORITY);
     }
 
     public function configure(DefinitionConfigurator $definition): void

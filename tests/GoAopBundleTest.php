@@ -10,6 +10,7 @@ use Go\Core\AspectContainer;
 use Go\Core\AspectKernel;
 use Go\Symfony\GoAopBundle\CacheWarmer\AspectCacheWarmer;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\AspectCollectorPass;
+use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\ClassSignatureResourcePass;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\DoctrineIntegrationPass;
 use Go\Symfony\GoAopBundle\GoAopBundle;
 use Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel;
@@ -31,6 +32,8 @@ class GoAopBundleTest extends TestCase
         $passes = array_map(static fn(object $pass): string => $pass::class, $container->getCompilerPassConfig()->getBeforeOptimizationPasses());
         $this->assertContains(AspectCollectorPass::class, $passes);
         $this->assertContains(DoctrineIntegrationPass::class, $passes);
+        $lastPasses = array_map(static fn(object $pass): string => $pass::class, $container->getCompilerPassConfig()->getAfterRemovingPasses());
+        $this->assertSame(ClassSignatureResourcePass::class, end($lastPasses), 'The resources are replaced after every other pass');
     }
 
     public function testBuildKeepsAnInlineClassLoaderSettingOfTheApplication(): void
