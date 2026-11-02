@@ -18,11 +18,14 @@ use Go\Core\AspectContainer;
 use Go\Core\AspectKernel;
 use Go\Instrument\ClassLoading\AopComposerLoader;
 use Go\Instrument\FileSystem\Enumerator;
+use Go\Symfony\GoAopBundle\Exception\AspectCircularReferenceException;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
+use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\ErrorHandler\DebugClassLoader;
 use Symfony\Contracts\Service\ServiceProviderInterface;
+use Throwable;
 
 /**
  * Aspect kernel of a Symfony application.
@@ -66,7 +69,7 @@ class AspectSymfonyKernel extends AspectKernel
         $aspectContainer->setDelegate($application);
         foreach (array_keys($aspects->getProvidedServices()) as $aspectClass) {
             /** @var class-string<Aspect> $aspectClass */
-            $aspectContainer->addLazyService($aspectClass, static fn(): Aspect => $aspects->get($aspectClass));
+            $aspectContainer->addLazyService($aspectClass, static fn(): Aspect => self::createAspect($aspects, $aspectClass));
         }
 
         return $kernel;
@@ -135,6 +138,85 @@ class AspectSymfonyKernel extends AspectKernel
         }
 
         return $classes;
+    }
+
+    /**
+     * Takes an aspect from the application container, reporting an aspect whose creation runs its own advice.
+     *
+     * The aspect container hands the aspect out as a lazy object, initialized by this factory when an advice of
+     * the aspect runs first. When creating the dependencies of the aspect runs an advice of the same aspect, that
+     * advice runs on the lazy object while it is being initialized, whose properties are not set yet: PHP reports
+     * an uninitialized property of the aspect, which hides the circular reference. The error is reported as an
+     * {@see AspectCircularReferenceException} with the path from the aspect to its advice. The report is a best
+     * effort: an advice that reads no property of its aspect raises no error.
+     *
+     * @param ServiceProviderInterface<Aspect> $aspects
+     * @param class-string<Aspect>             $aspectClass
+     */
+    private static function createAspect(ServiceProviderInterface $aspects, string $aspectClass): Aspect
+    {
+        try {
+            return $aspects->get($aspectClass);
+        } catch (Throwable $exception) {
+            // Frames of the exception traces that are not on the current stack were called by the line above
+            $depth = count(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS));
+            for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+                $path = self::findAdvicePath($aspectClass, array_slice($cause->getTrace(), 0, max(0, count($cause->getTrace()) - $depth)));
+                if ($path !== null) {
+                    throw new AspectCircularReferenceException($aspectClass, $path, $exception);
+                }
+            }
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * Looks for a call of a method of the aspect (other than its construction) in the frames of its creation
+     *
+     * @param class-string<Aspect>                                         $aspectClass
+     * @param list<array{class?: string, type?: string, function: string}> $frames      Frames called while creating the aspect, innermost first
+     *
+     * @return list<string>|null Calls of application code from the creation of the aspect to its advice, outermost first
+     */
+    private static function findAdvicePath(string $aspectClass, array $frames): ?array
+    {
+        $path = [];
+        foreach (array_reverse($frames) as $frame) {
+            $class = $frame['class'] ?? null;
+            if ($class === null || ($frame['type'] ?? null) !== '->') {
+                continue;
+            }
+            $call = $class . '->' . $frame['function'] . '()';
+            if (is_a($aspectClass, $class, true)) {
+                if ($frame['function'] === '__construct') {
+                    // Raised by the aspect itself once its dependencies exist: not a circular reference
+                    return null;
+                }
+
+                return [...$path, $call];
+            }
+            if (!self::isInfrastructure($class)) {
+                $path[] = $call;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Checks whether a class belongs to the weaving runtime or to the service container, left out of the reported path
+     */
+    private static function isInfrastructure(string $class): bool
+    {
+        foreach (['Go\\Aop\\', 'Go\\Core\\', 'Symfony\\Component\\DependencyInjection\\', 'Symfony\\Contracts\\Service\\'] as $namespace) {
+            if (str_starts_with($class, $namespace)) {
+                return true;
+            }
+        }
+
+        // The compiled container of the application
+        return is_a($class, Container::class, true);
     }
 
     protected function configureAop(AspectContainer $container): void

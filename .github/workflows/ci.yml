@@ -28,6 +28,8 @@ jobs:
           php-version: ${{ matrix.php }}
           coverage: none
           tools: composer:v2, flex
+          # The tracing JIT crashes test processes from time to time (a bug in the PHP core), see tests/AGENTS.md
+          ini-values: opcache.jit=disable
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -50,6 +52,7 @@ jobs:
           php-version: '8.4'
           coverage: none
           tools: composer:v2
+          ini-values: opcache.jit=disable
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
