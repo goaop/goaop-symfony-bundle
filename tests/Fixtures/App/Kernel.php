@@ -27,6 +27,7 @@ use Symfony\Component\HttpKernel\Kernel as BaseKernel;
  *  - "profiler": debug mode with the web profiler and a /greet route
  *  - "misplaced": GoAopBundle registered after FrameworkBundle, to test the ordering check
  *  - "signatures": debug mode with the woven classes of src/Signature and their aspect (DebugClassLoader checks)
+ *  - "cycle": debug mode with the aspects of src/Cycle, which depend on the services they advise
  *
  * The cache directory is taken from the APP_CACHE_DIR environment variable so that every test
  * process works in its own directory.
@@ -141,13 +142,16 @@ final class Kernel extends BaseKernel
 
         $services = $container->services()->defaults()->autowire()->autoconfigure();
         $services->load('Go\\Symfony\\GoAopBundle\\Tests\\Fixtures\\App\\', __DIR__ . '/src/')
-            ->exclude([__DIR__ . '/src/Entity', __DIR__ . '/src/Signature']);
+            ->exclude([__DIR__ . '/src/Entity', __DIR__ . '/src/Signature', __DIR__ . '/src/Cycle']);
         $services->get(Service\GreetingService::class)->public();
         $services->get(Service\Recorder::class)->public();
 
         if ($this->environment === 'signatures') {
             $services->set(Signature\SignatureAspect::class);
             $services->set(Signature\CardGateway::class)->arg('$name', 'card')->public();
+        }
+        if ($this->environment === 'cycle') {
+            $services->load('Go\\Symfony\\GoAopBundle\\Tests\\Fixtures\\App\\Cycle\\', __DIR__ . '/src/Cycle/')->public();
         }
     }
 }

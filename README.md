@@ -255,7 +255,13 @@ With `symfony/web-profiler-bundle` installed, the toolbar shows the number of as
 - **"GoAopBundle must be the first bundle in config/bundles.php"** — move it above every other bundle (the internal component bundles of Symfony 8.1 are fine before it).
 - **An aspect does not apply.** Check `debug:advisor --advisor=...` first: it lists the joinpoints a pointcut matches. Then make sure the class lies below an include path and is not loaded before the bundle boots (profiler panel, *classes loaded before weaving*). Vendor code is only woven when its directory is an include path.
 - **Everything works in dev but not in prod.** The production cache is built at deploy time: run `cache:clear` or `cache:warmup`, and keep `PREBUILT_CACHE` on only when the deployment rebuilds the cache. Check that nothing defines `.container.dumper.inline_class_loader: true`, and that `config/preload.php` boots the kernel before the container preload file when preloading is enabled.
-- **Circular reference when an aspect depends on a service it advises.** The aspect is created when the first advice runs, which may happen while the Symfony container is still building that very service. Inject a service locator or mark the woven service `lazy`.
+- **"Circular reference detected for the aspect ..."** — an aspect is created by the container when one of its advices runs first, after its dependencies. An aspect can depend on a woven service, even on one it advises; but when creating one of its dependencies runs an advice of the same aspect (the aspect advises the constructor of a service it depends on, a method that this constructor calls, or code that another dependency runs while it is created), that advice would run on an aspect that does not exist yet. The message shows the path from the aspect to its advice. Inject the dependency lazily, so that the aspect can be created first:
+  ```php
+  public function __construct(
+      #[Autowire(lazy: true)] private readonly Wallet $wallet,  // or #[AutowireServiceClosure(Wallet::class)], a service locator
+  ) {}
+  ```
+  or narrow the pointcut so that the aspect does not advise the creation of its own dependencies. With the tracing JIT of opcache enabled, PHP may crash (segmentation fault) on such a cycle before the exception is thrown, and an advice that does not read the properties of its aspect runs on the uninitialized aspect without an error: when in doubt, look for this pattern.
 - **Exception handlers.** Exclude the classes that must be loadable when everything else failed (error handlers, the kernel) through `exclude_paths`.
 
 ## Upgrading from 2.x

@@ -30,6 +30,7 @@ composer analyse            # phpstan, level max (src/ only)
 | `profiler` | debug | the web profiler and a `/greet` route |
 | `misplaced` | — | GoAopBundle registered after FrameworkBundle, for the ordering check |
 | `signatures` | debug | the woven classes of `src/Signature` and their aspect, for the DebugClassLoader checks (#23) |
+| `cycle` | debug | the aspects of `src/Cycle`, which depend on the services they advise, for the circular reference checks (#15) |
 
 Adding an environment:
 
@@ -43,6 +44,7 @@ Adding an environment:
 - Weaving fixtures (`tests/Fixtures/App/src`) must never be autoloaded before the kernel boots. Refer to them with `::class` only: no `new`, static calls, constants or `class_exists()` in the test process before booting.
 - A test that changes a fixture file (content or mtime) restores it in a `finally` block or in `tearDown()`.
 - Symfony regenerates `tests/Fixtures/App/config/reference.php` on every container build, for the environment that was built last. A full suite run leaves the committed version; do not commit the changes of a partial run.
+- The tests of the `cycle` environment call `ini_set('opcache.jit', 'off')` before booting: an advice running on an aspect while the aspect is being created (a circular reference) crashes the tracing JIT of PHP 8.5 from time to time, which ends the test process without a result.
 - When collecting deprecations or errors (e.g. under the DebugClassLoader), assert on the messages that concern the fixture classes only: dependencies may report their own deprecations.
 
 ## Testing against a local framework checkout
