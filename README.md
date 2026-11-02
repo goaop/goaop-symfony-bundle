@@ -263,7 +263,7 @@ With `symfony/web-profiler-bundle` installed, the toolbar shows the number of as
       #[Autowire(lazy: true)] private readonly Wallet $wallet,  // or #[AutowireServiceClosure(Wallet::class)], a service locator
   ) {}
   ```
-  or narrow the pointcut so that the aspect does not advise the creation of its own dependencies. With the tracing JIT of opcache enabled, PHP may crash (segmentation fault) on such a cycle before the exception is thrown, and an advice that does not read the properties of its aspect runs on the uninitialized aspect without an error: when in doubt, look for this pattern.
+  or narrow the pointcut so that the aspect does not advise the creation of its own dependencies. An advice that does not read the properties of its aspect runs on the uninitialized aspect without an error: when in doubt, look for this pattern.
 - **Exception handlers.** Exclude the classes that must be loadable when everything else failed (error handlers, the kernel) through `exclude_paths`.
 - **"Class ... was not found by locator"** — a class below the include paths depends on code Composer can not locate, see below.
 

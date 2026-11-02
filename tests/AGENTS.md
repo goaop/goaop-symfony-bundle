@@ -41,12 +41,12 @@ Adding an environment:
 
 ## Rules that keep the suite reliable
 
+- Run the suite with the opcache JIT disabled (`opcache.jit=disable`). The tracing JIT of PHP has a bug in the core that crashes test processes from time to time (a segmentation fault, so the test ends without a result); the circular reference tests of the `cycle` environment hit it most often. This is a rule for every build, not a workaround in a test: CI sets it with the `ini-values` of `shivammathur/setup-php`, and locally it belongs in the php.ini of the CLI (a `-d` option on the command line does not reach the console processes that the functional tests start). Do not turn the JIT off from test code.
 - `Go\Core\AspectKernel` is a process-wide singleton that wraps the Composer class loader. Every test booting a kernel runs with `#[RunTestsInSeparateProcesses]` and `#[PreserveGlobalState(false)]`.
 - The process that compiles the container loads the service classes before the bundle boots, so they are not woven in that process. A test that needs woven services builds the container first in a separate process: `self::runConsole(['cache:warmup', '--no-optional-warmers'])`.
 - Weaving fixtures (`tests/Fixtures/App/src`) must never be autoloaded before the kernel boots. Refer to them with `::class` only: no `new`, static calls, constants or `class_exists()` in the test process before booting.
 - A test that changes a fixture file (content or mtime) restores it in a `finally` block or in `tearDown()`.
 - Symfony regenerates `tests/Fixtures/App/config/reference.php` on every container build, for the environment that was built last, so a test run usually leaves it modified. Do not commit those changes: restore it with `git checkout -- tests/Fixtures/App/config/reference.php`.
-- The tests of the `cycle` environment call `ini_set('opcache.jit', 'off')` before booting: an advice running on an aspect while the aspect is being created (a circular reference) crashes the tracing JIT of PHP 8.5 from time to time, which ends the test process without a result.
 - When collecting deprecations or errors (e.g. under the DebugClassLoader), assert on the messages that concern the fixture classes only: dependencies may report their own deprecations.
 
 ## Testing against a local framework checkout

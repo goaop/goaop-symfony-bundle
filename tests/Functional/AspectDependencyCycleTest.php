@@ -120,10 +120,6 @@ class AspectDependencyCycleTest extends FunctionalTestCase
 
     private function bootCycleKernel(): ContainerInterface
     {
-        // An advice running on an aspect that is being initialized crashes the tracing JIT of PHP 8.5 from time to
-        // time (the other scenarios of this environment did so too, rarely), which ends the test process without a result
-        ini_set('opcache.jit', 'off');
-
         // The service classes must be loaded through the weaver: the container is built in another process
         self::runConsole(['cache:warmup', '--no-optional-warmers'], 'cycle');
 

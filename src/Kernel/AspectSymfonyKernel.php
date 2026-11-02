@@ -148,8 +148,7 @@ class AspectSymfonyKernel extends AspectKernel
      * advice runs on the lazy object while it is being initialized, whose properties are not set yet: PHP reports
      * an uninitialized property of the aspect, which hides the circular reference. The error is reported as an
      * {@see AspectCircularReferenceException} with the path from the aspect to its advice. The report is a best
-     * effort: an advice that reads no property of its aspect raises no error, and the tracing JIT of PHP may crash
-     * on the access to the object being initialized before this method gets the error.
+     * effort: an advice that reads no property of its aspect raises no error.
      *
      * @param ServiceProviderInterface<Aspect> $aspects
      * @param class-string<Aspect>             $aspectClass
