@@ -64,6 +64,26 @@ abstract class FunctionalTestCase extends TestCase
     }
 
     /**
+     * Handles a request for /greet/{name} in a separate process, through the front controller of the fixture
+     * application in debug mode, like a web server would
+     *
+     * @return array{status: int, response: array{greeting: string, events: list<string>}, loadedBeforeWeaving: list<class-string>}
+     */
+    protected static function handleRequest(string $name, string $environment = 'test'): array
+    {
+        $process = new Process(
+            [PHP_BINARY, self::projectDir() . '/public/index.php', $name, $environment],
+            self::projectDir(),
+            ['APP_CACHE_DIR' => self::cacheRootDir()],
+        );
+        $process->setTimeout(300);
+        $process->mustRun();
+
+        /** @var array{status: int, response: array{greeting: string, events: list<string>}, loadedBeforeWeaving: list<class-string>} */
+        return json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+    }
+
+    /**
      * Lists the files below a directory, with their paths relative to it
      *
      * @return list<string>
