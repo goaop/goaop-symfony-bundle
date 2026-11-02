@@ -15,7 +15,7 @@ composer analyse            # phpstan, level max (src/ only)
 
 - `tests/*Test.php`, `tests/DependencyInjection/` — unit tests of the bundle class, the configuration, the options resolver and the compiler passes. They never boot a kernel.
 - `tests/Functional/` — end-to-end tests that boot the fixture application. They extend `FunctionalTestCase` (kernel boot, console runs in a subprocess, cache cleanup).
-- `tests/Fixtures/App/` — the fixture Symfony application: `Kernel.php`, `bin/console`, `public/index.php`, `config/`, and the weaving fixtures in `src/` (aspects, services, a Doctrine entity).
+- `tests/Fixtures/App/` — the fixture Symfony application: `Kernel.php`, `bin/console`, `public/index.php`, `config/`, and the weaving fixtures in `src/` (aspects, services, a Doctrine entity). `Admin/` and `BaseClassGenerator.php` hold the fixtures of the `generated` environments, outside `src/` so that no other environment weaves them.
 - `tests/bootstrap.php` — gives every test process a cache directory of its own (`APP_CACHE_DIR`) and removes it at exit.
 
 ## Fixture environments
@@ -30,6 +30,8 @@ composer analyse            # phpstan, level max (src/ only)
 | `profiler` | debug | the web profiler and a `/greet` route |
 | `misplaced` | — | GoAopBundle registered after FrameworkBundle, for the ordering check |
 | `signatures` | debug | the woven classes of `src/Signature` and their aspect, for the DebugClassLoader checks (#23) |
+| `generated` | debug | also weaves `Admin/`, whose class extends a class generated into the cache directory that Composer can not locate (`BaseClassGenerator`, #17) |
+| `generated_excluded` | debug | `generated` with `Admin/` in `exclude_paths` |
 
 Adding an environment:
 
