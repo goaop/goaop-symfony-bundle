@@ -257,6 +257,45 @@ With `symfony/web-profiler-bundle` installed, the toolbar shows the number of as
 - **Everything works in dev but not in prod.** The production cache is built at deploy time: run `cache:clear` or `cache:warmup`, and keep `PREBUILT_CACHE` on only when the deployment rebuilds the cache. Check that nothing defines `.container.dumper.inline_class_loader: true`, and that `config/preload.php` boots the kernel before the container preload file when preloading is enabled.
 - **Circular reference when an aspect depends on a service it advises.** The aspect is created when the first advice runs, which may happen while the Symfony container is still building that very service. Inject a service locator or mark the woven service `lazy`.
 - **Exception handlers.** Exclude the classes that must be loadable when everything else failed (error handlers, the kernel) through `exclude_paths`.
+- **"Class ... was not found by locator"** — a class below the include paths depends on code Composer can not locate, see below.
+
+### Classes extending generated code
+
+The weaver reads a class from its source file without loading it, and it reads the parent classes, interfaces and traits of the class the same way: it asks Composer for their files. An ancestor that is already declared is reflected as it is, but usually the class is woven before its ancestors are loaded. Weaving a class therefore fails when one of its ancestors is:
+
+- generated at runtime and loaded by an autoloader of its own, like the base classes that admin generators and other code generators write into `var/cache`;
+- declared by `class_alias()` in a file that Composer maps to the alias name;
+- defined in a file Composer does not know about (included by hand, or loaded from a PHAR by another autoloader).
+
+It fails as soon as the class part of a pointcut matches the class (`App\Admin\*`, `App\**`, ...), even when in the end no advice applies to any of its methods: the weaver reflects every method of the class, inherited ones included. Classes that no pointcut can match are loaded as they are. The class loader throws when it weaves such a class, in debug and in production mode, and the warm-up of `cache:warmup` and `cache:clear` fails with the same message for each file and a hint:
+
+```
+Go\Aop\Exception\WeavingException: Go\Instrument\Transformer\WeavingTransformer failed to transform
+/app/src/Admin/ReportController.php: Class Acme\Generated\BaseReportController was not found by locator
+```
+
+For a `class_alias()` file the message ends with `Class Acme\OldName was not found in the /path/to/alias.php` instead. The failure depends on what the process loaded before: the request (or command) that compiles the container loads the service classes and their ancestors first, so it often works there and fails on the next request, or only in a `cache:warmup` that finds the container already built.
+
+To fix it, from the best option to the least intrusive one:
+
+1. **Let Composer locate the ancestor**, and the class is woven as any other. Register the directory of the generated code with Composer, through the `autoload` section of `composer.json`, or at runtime before the kernel boots:
+   ```php
+   // src/Kernel.php
+   public function boot(): void
+   {
+       foreach (\Composer\Autoload\ClassLoader::getRegisteredLoaders() as $loader) {
+           $loader->addPsr4('Acme\\Generated\\', $this->getCacheDir() . '/generated/');
+       }
+       parent::boot();
+   }
+   ```
+   The generated files must exist when the class is woven: generate them before the cache warm-up.
+2. **Exclude the classes that depend on it** from weaving. They are loaded as they are, without aspects:
+   ```yaml
+   go_aop:
+       exclude_paths: ['%kernel.project_dir%/src/Admin']
+   ```
+3. **Keep `include_paths` narrow**: list the directories your aspects are meant for (`src/Service`, `src/Domain`, ...) rather than `src` or the whole project. Only the AOP cache directory and the framework with its runtime dependencies are excluded automatically: an include path that covers the rest of `%kernel.cache_dir%` or `vendor/` weaves the code there too, generated code included.
 
 ## Upgrading from 2.x
 
