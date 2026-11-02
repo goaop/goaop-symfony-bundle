@@ -127,8 +127,9 @@ final class AspectCacheWarmer implements CacheWarmerInterface
     }
 
     /**
-     * Explains the most common failure: the weaver reflects the ancestors of a class from their source files,
-     * which it finds through Composer, unless they are already declared
+     * Names the bundle option for the most common failure: the weaver reads the ancestors of a class from their
+     * source files, which it finds through Composer, unless they are already declared. The framework explains the
+     * failure in the error of the file, with the name of its kernel option.
      */
     private static function hint(string $errorLines): string
     {
@@ -136,9 +137,6 @@ final class AspectCacheWarmer implements CacheWarmerInterface
             return '';
         }
 
-        return "\n\nA class below the include paths extends, implements or uses a class, interface or trait that "
-            . 'Composer can not locate (code generated at runtime, a class_alias(), a file outside the autoloader). '
-            . 'Make that class loadable by Composer, or exclude the directory of the classes depending on it from '
-            . 'weaving with the go_aop.exclude_paths option.';
+        return "\n\nIn the bundle configuration, the excludePaths option is go_aop.exclude_paths.";
     }
 }
