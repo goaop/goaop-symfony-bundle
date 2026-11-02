@@ -27,6 +27,9 @@ use Symfony\Component\HttpKernel\Kernel as BaseKernel;
  *  - "profiler": debug mode with the web profiler and a /greet route
  *  - "misplaced": GoAopBundle registered after FrameworkBundle, to test the ordering check
  *  - "signatures": debug mode with the woven classes of src/Signature and their aspect (DebugClassLoader checks)
+ *  - "generated": debug mode, the Admin directory is woven too; its class extends a class generated into the cache
+ *    directory that Composer can not locate (see BaseClassGenerator)
+ *  - "generated_excluded": the "generated" environment with the Admin directory in exclude_paths
  *  - "cycle": debug mode with the aspects of src/Cycle, which depend on the services they advise
  *
  * The cache directory is taken from the APP_CACHE_DIR environment variable so that every test
@@ -54,6 +57,14 @@ final class Kernel extends BaseKernel
             yield new TwigBundle();
             yield new WebProfilerBundle();
         }
+    }
+
+    public function boot(): void
+    {
+        if (str_starts_with($this->environment, 'generated')) {
+            BaseClassGenerator::register($this->getCacheDir() . '/generated');
+        }
+        parent::boot();
     }
 
     public function greet(string $name): Response
@@ -117,6 +128,12 @@ final class Kernel extends BaseKernel
         if ($this->environment === 'prod') {
             $goAop['features'] = ['PREBUILT_CACHE'];
         }
+        if (str_starts_with($this->environment, 'generated')) {
+            $goAop['include_paths'][] = '%kernel.project_dir%/Admin';
+        }
+        if ($this->environment === 'generated_excluded') {
+            $goAop['exclude_paths'] = ['%kernel.project_dir%/Admin'];
+        }
         $container->extension('go_aop', $goAop);
 
         if ($this->environment === 'doctrine') {
@@ -149,6 +166,10 @@ final class Kernel extends BaseKernel
         if ($this->environment === 'signatures') {
             $services->set(Signature\SignatureAspect::class);
             $services->set(Signature\CardGateway::class)->arg('$name', 'card')->public();
+        }
+        if (str_starts_with($this->environment, 'generated')) {
+            $services->set(Admin\ReportAspect::class);
+            $services->set(Admin\ReportController::class)->public();
         }
         if ($this->environment === 'cycle') {
             $services->load('Go\\Symfony\\GoAopBundle\\Tests\\Fixtures\\App\\Cycle\\', __DIR__ . '/src/Cycle/')->public();
