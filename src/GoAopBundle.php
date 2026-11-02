@@ -234,8 +234,12 @@ final class GoAopBundle extends AbstractBundle
 
         throw new LogicException(sprintf(
             'GoAopBundle must be the first bundle in config/bundles.php, but "%s" is registered before it. '
-            . 'Classes loaded before the aspect kernel is initialized can not be woven.',
+            . 'Classes loaded before the aspect kernel is initialized can not be woven. '
+            . 'Move the line "%s::class => [\'all\' => true]," to the top of the array returned by config/bundles.php '
+            . '(or yield the bundle first in Kernel::registerBundles()). Symfony Flex appends new bundles at the end '
+            . 'of config/bundles.php, so this is needed once after "composer require goaop/goaop-symfony-bundle".',
             (string) $name,
+            self::class,
         ));
     }
 }

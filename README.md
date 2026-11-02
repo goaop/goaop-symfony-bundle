@@ -78,6 +78,8 @@ composer require goaop/goaop-symfony-bundle
 
 Register the bundle as the **first** entry of `config/bundles.php`. Weaving only applies to classes loaded after the aspect kernel is initialized, and bundles boot in registration order, so this is enforced: the container build fails with a clear message otherwise.
 
+> **Symfony Flex** registers new bundles at the *end* of `config/bundles.php`, so the `cache:clear` that runs at the end of `composer require` fails with "GoAopBundle must be the first bundle". Move the line to the top as shown below and run `bin/console cache:clear` again; this is needed once.
+
 ```php
 // config/bundles.php
 return [
@@ -252,7 +254,7 @@ With `symfony/web-profiler-bundle` installed, the toolbar shows the number of as
 
 ## Troubleshooting
 
-- **"GoAopBundle must be the first bundle in config/bundles.php"** — move it above every other bundle (the internal component bundles of Symfony 8.1 are fine before it).
+- **"GoAopBundle must be the first bundle in config/bundles.php"** — move its line above every other bundle (the internal component bundles of Symfony 8.1 are fine before it). Symfony Flex appends new bundles at the end, so this happens once right after `composer require`.
 - **An aspect does not apply.** Check `debug:advisor --advisor=...` first: it lists the joinpoints a pointcut matches. Then make sure the class lies below an include path and is not loaded before the bundle boots (profiler panel, *classes loaded before weaving*). Vendor code is only woven when its directory is an include path.
 - **Everything works in dev but not in prod.** The production cache is built at deploy time: run `cache:clear` or `cache:warmup`, and keep `PREBUILT_CACHE` on only when the deployment rebuilds the cache. Check that nothing defines `.container.dumper.inline_class_loader: true`, and that `config/preload.php` boots the kernel before the container preload file when preloading is enabled.
 - **Circular reference when an aspect depends on a service it advises.** The aspect is created when the first advice runs, which may happen while the Symfony container is still building that very service. Inject a service locator or mark the woven service `lazy`.
