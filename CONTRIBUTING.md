@@ -65,7 +65,7 @@ docs/readme-preload-section
 
 ## Testing notes
 
-- The suite boots a real Symfony application: `tests/Fixtures/App` (environments `test`, `prod`, `doctrine`, `profiler` and `misplaced`).
+- The suite boots a real Symfony application: `tests/Fixtures/App` (environments `test`, `prod`, `doctrine`, `profiler`, `misplaced`, `generated` and `generated_excluded`).
 - `Go\Core\AspectKernel` is a process-wide singleton that wraps the Composer class loader, so every test booting a kernel runs with `#[RunTestsInSeparateProcesses]` and `#[PreserveGlobalState(false)]`. `tests/bootstrap.php` gives every process a cache directory of its own (`APP_CACHE_DIR`).
 - The process that compiles the container loads the service classes before the bundle boots, so a test that needs woven services builds the container first in a separate process: `self::runConsole(['cache:warmup', '--no-optional-warmers'])`.
 - Weaving fixtures (`tests/Fixtures/App/src`) must never be autoloaded before the kernel boots: refer to them with `::class` only.

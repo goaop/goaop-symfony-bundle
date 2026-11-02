@@ -17,6 +17,7 @@ use Go\Instrument\ClassLoading\CacheWarmer;
 use Go\Instrument\PathResolver;
 use RuntimeException;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpKernel\CacheWarmer\CacheWarmerInterface;
 
 /**
@@ -54,18 +55,22 @@ final class AspectCacheWarmer implements CacheWarmerInterface
     public function warmUp(string $cacheDir, ?string $buildDir = null): array
     {
         $targetDir = $this->resolveTargetDir($cacheDir, $buildDir ?? $cacheDir);
-        $output    = new BufferedOutput();
+        // Verbose output lists one line per file instead of a progress bar, the errors are picked from it
+        $output    = new BufferedOutput(OutputInterface::VERBOSITY_VERBOSE);
         // The directory of the running kernel is warmed up in place, any other one is built next to it
         $otherDir = self::isSameDirectory($targetDir, $this->aspectKernel->getOptions()['cacheDir']) ? null : $targetDir;
         $warmer   = new CacheWarmer($this->aspectKernel, $output, cacheDir: $otherDir);
 
         $errors = $warmer->warmUp();
         if ($errors > 0) {
+            $errorLines = self::errorLines($output->fetch());
+
             throw new RuntimeException(sprintf(
-                "Go! AOP failed to weave %d file(s) into \"%s\":\n%s",
+                "Go! AOP failed to weave %d file(s) into \"%s\":\n%s%s",
                 $errors,
                 $targetDir,
-                self::errorLines($output->fetch()),
+                $errorLines,
+                self::hint($errorLines),
             ));
         }
 
@@ -99,15 +104,41 @@ final class AspectCacheWarmer implements CacheWarmerInterface
     }
 
     /**
-     * Keeps the lines that report an error, the progress lines of a successful file are noise in an exception
+     * Keeps the lines that report the errors of files: the header, the summary and the lines of the successful
+     * files are noise in an exception
      */
     private static function errorLines(string $output): string
     {
+        $noise = ['[OK]', '[DONE]', 'Total ', 'Weaving in '];
         $lines = array_filter(
             array_map(trim(...), explode("\n", $output)),
-            static fn(string $line): bool => $line !== '' && !str_starts_with($line, '[OK]'),
+            static function (string $line) use ($noise): bool {
+                foreach ($noise as $prefix) {
+                    if (str_starts_with($line, $prefix)) {
+                        return false;
+                    }
+                }
+
+                return $line !== '';
+            },
         );
 
         return implode("\n", array_slice(array_values($lines), 0, 50));
+    }
+
+    /**
+     * Explains the most common failure: the weaver reflects the ancestors of a class from their source files,
+     * which it finds through Composer, unless they are already declared
+     */
+    private static function hint(string $errorLines): string
+    {
+        if (preg_match('/Class \S+ was not found (by locator|in the )/', $errorLines) !== 1) {
+            return '';
+        }
+
+        return "\n\nA class below the include paths extends, implements or uses a class, interface or trait that "
+            . 'Composer can not locate (code generated at runtime, a class_alias(), a file outside the autoloader). '
+            . 'Make that class loadable by Composer, or exclude the directory of the classes depending on it from '
+            . 'weaving with the go_aop.exclude_paths option.';
     }
 }

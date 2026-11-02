@@ -26,6 +26,9 @@ use Symfony\Component\HttpKernel\Kernel as BaseKernel;
  *  - "doctrine": debug mode with DoctrineBundle and an attribute-mapped entity
  *  - "profiler": debug mode with the web profiler and a /greet route
  *  - "misplaced": GoAopBundle registered after FrameworkBundle, to test the ordering check
+ *  - "generated": debug mode, the Admin directory is woven too; its class extends a class generated into the cache
+ *    directory that Composer can not locate (see BaseClassGenerator)
+ *  - "generated_excluded": the "generated" environment with the Admin directory in exclude_paths
  *
  * The cache directory is taken from the APP_CACHE_DIR environment variable so that every test
  * process works in its own directory.
@@ -52,6 +55,14 @@ final class Kernel extends BaseKernel
             yield new TwigBundle();
             yield new WebProfilerBundle();
         }
+    }
+
+    public function boot(): void
+    {
+        if (str_starts_with($this->environment, 'generated')) {
+            BaseClassGenerator::register($this->getCacheDir() . '/generated');
+        }
+        parent::boot();
     }
 
     public function greet(string $name): Response
@@ -115,6 +126,12 @@ final class Kernel extends BaseKernel
         if ($this->environment === 'prod') {
             $goAop['features'] = ['PREBUILT_CACHE'];
         }
+        if (str_starts_with($this->environment, 'generated')) {
+            $goAop['include_paths'][] = '%kernel.project_dir%/Admin';
+        }
+        if ($this->environment === 'generated_excluded') {
+            $goAop['exclude_paths'] = ['%kernel.project_dir%/Admin'];
+        }
         $container->extension('go_aop', $goAop);
 
         if ($this->environment === 'doctrine') {
@@ -143,5 +160,9 @@ final class Kernel extends BaseKernel
             ->exclude([__DIR__ . '/src/Entity']);
         $services->get(Service\GreetingService::class)->public();
         $services->get(Service\Recorder::class)->public();
+        if (str_starts_with($this->environment, 'generated')) {
+            $services->set(Admin\ReportAspect::class);
+            $services->set(Admin\ReportController::class)->public();
+        }
     }
 }
