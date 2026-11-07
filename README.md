@@ -180,12 +180,13 @@ Environment variables work as everywhere in Symfony, e.g. `debug: '%env(bool:GOA
 
 | Command | Purpose |
 |---|---|
-| `cache:warmup:aop [--fail-fast] [--cache-dir=DIR]` | Weaves every file below the include paths into the cache. Fails when a file cannot be woven. The same warm-up runs as a cache warmer of `cache:warmup` and `cache:clear`. |
+| `cache:warmup:aop [--fail-fast] [--cache-dir=DIR] [--cached-files=N] [--preload[=FILE]]` | Weaves every file below the include paths into the cache. Fails when a file cannot be woven. The same warm-up runs as a cache warmer of `cache:warmup` and `cache:clear`. `--preload` also writes the `opcache.preload` script of the cache, see [Opcache preloading](#opcache-preloading). |
+| `cache:warmup:opcache [--file-cache=DIR] [--entry=FILE]` | Primes the opcache file cache (`opcache.file_cache`) with the AOP cache and the application, for containers that start with a hot opcache. Run it in the final image, with the settings it prints when they are missing. |
 | `debug:aspect [--aspect=FQCN]` | Lists the aspects with their pointcuts and advisors. |
 | `debug:advisor [--advisor=ID]` | Lists the advisors; with `--advisor` the joinpoints that advisor matches. The quickest way to check a pointcut expression. |
 | `debug:weaving [-v]` | Weaves the application twice and reports proxies that differ, which points to a non-deterministic aspect. |
 
-These are the commands of the framework itself, registered in the console of the application: they work on the running aspect kernel, so the loader argument of `vendor/bin/aspect` is omitted. `cache:warmup:aop --cache-dir=DIR` builds the cache in another directory, from scratch, which is what the cache warmer does during `cache:clear`.
+These are the commands of the framework itself, registered in the console of the application: they work on the running aspect kernel, so the loader argument of `vendor/bin/aspect` is omitted. `cache:warmup:aop --cache-dir=DIR` builds the cache in another directory, from scratch, which is what the cache warmer does during `cache:clear`. `cache:warmup:aop --workers=N` weaves in one process here: its worker processes would boot the kernel with a loader file, and the console of the application has none. Symfony's `DebugClassLoader` is lifted while these commands run in debug mode: it hides the Composer autoloader that the preload script and the file cache primer read.
 
 ## Deployment
 

@@ -93,5 +93,5 @@ Console
 -------
 
 The commands of the framework are registered as they are (`cache:warmup:aop`, `debug:aspect`, `debug:advisor`,
-and the new `debug:weaving`): inside the application they use the running kernel, the `loader` argument is
-omitted. The bundle no longer ships command classes of its own.
+and the new `debug:weaving` and `cache:warmup:opcache`): inside the application they use the running kernel, the
+`loader` argument is omitted. The bundle no longer ships command classes of its own.

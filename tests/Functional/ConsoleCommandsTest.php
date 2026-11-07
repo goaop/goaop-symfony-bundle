@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Tester\ApplicationTester;
+use Symfony\Component\Process\Process;
 
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]
@@ -67,6 +68,55 @@ class ConsoleCommandsTest extends FunctionalTestCase
         $this->assertStringContainsString('[<loader>]', $tester->getDisplay());
         $this->assertStringContainsString('--fail-fast', $tester->getDisplay());
         $this->assertStringContainsString('--cache-dir', $tester->getDisplay());
+        $this->assertStringContainsString('--preload', $tester->getDisplay());
+
+        $tester = $this->runCommand(['command' => 'help', 'command_name' => 'cache:warmup:opcache']);
+        $this->assertSame(0, $tester->getStatusCode(), $tester->getDisplay());
+        $this->assertStringContainsString('--file-cache', $tester->getDisplay());
+    }
+
+    public function testCacheWarmupAopWritesThePreloadScriptBehindTheDebugClassLoader(): void
+    {
+        // The console of the fixture application enables the DebugClassLoader in debug mode, like the Symfony runtime
+        $process = self::runConsole(['cache:warmup:aop', '--preload']);
+
+        $this->assertFileExists(self::cacheRootDir() . '/test/aop/_preload.php', $process->getOutput() . $process->getErrorOutput());
+        $this->assertStringContainsString('Preload script written to', $process->getOutput());
+    }
+
+    public function testOpcacheWarmupPrimesTheFileCache(): void
+    {
+        if (!extension_loaded('Zend OPcache')) {
+            $this->markTestSkipped('The opcache extension is not loaded');
+        }
+        self::runConsole(['cache:warmup:aop']);
+
+        $fileCacheDir = self::cacheRootDir() . '/opcache';
+        mkdir($fileCacheDir, 0o777, true);
+        // Compiled scripts land in the file cache only in a process started with these settings
+        $process = new Process(
+            [
+                PHP_BINARY,
+                '-d', 'opcache.enable_cli=1',
+                '-d', 'opcache.file_cache_only=1',
+                '-d', 'opcache.file_cache=' . $fileCacheDir,
+                self::projectDir() . '/bin/console',
+                'cache:warmup:opcache',
+                '--file-cache=' . $fileCacheDir,
+                '--entry=' . self::projectDir() . '/public/index.php',
+                '--env=test',
+            ],
+            self::projectDir(),
+            ['APP_CACHE_DIR' => self::cacheRootDir()],
+        );
+        $process->setTimeout(300);
+        $process->run();
+
+        // Composer's autoloaded files are included already and declare functions: compiling them again fails, which
+        // the command ignores, and the console must not report it as a fatal error at shutdown
+        $this->assertSame(0, $process->getExitCode(), $process->getOutput() . $process->getErrorOutput());
+        $this->assertStringContainsString('Compiled ', $process->getOutput());
+        $this->assertNotSame([], self::listFiles($fileCacheDir));
     }
 
     /**

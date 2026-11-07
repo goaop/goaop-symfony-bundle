@@ -12,7 +12,6 @@ declare(strict_types=1);
 
 namespace Go\Symfony\GoAopBundle\Kernel;
 
-use Closure;
 use Composer\Autoload\ClassLoader;
 use Go\Aop\Aspect;
 use Go\Aop\Exception\AspectCircularReferenceException as FrameworkCircularReferenceException;
@@ -25,7 +24,6 @@ use Go\Symfony\GoAopBundle\Exception\AspectCircularReferenceException;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
-use Symfony\Component\ErrorHandler\DebugClassLoader;
 use Symfony\Contracts\Service\ServiceProviderInterface;
 
 /**
@@ -66,7 +64,7 @@ class AspectSymfonyKernel extends AspectKernel
         $kernel = self::instance();
         // In debug mode the framework tracks the file of every registered aspect, which it finds through the Composer
         // loaders: behind the DebugClassLoader it would autoload the aspect instead
-        self::withoutDebugClassLoader(static function () use ($kernel, $options, $aspects, $application): void {
+        DebugClassLoaderGuard::lifted(static function () use ($kernel, $options, $aspects, $application): void {
             $kernel->init($options);
 
             $aspectContainer = $kernel->getContainer();
@@ -94,7 +92,7 @@ class AspectSymfonyKernel extends AspectKernel
             return;
         }
 
-        self::withoutDebugClassLoader(function () use ($options): void {
+        DebugClassLoaderGuard::lifted(function () use ($options): void {
             parent::init($options);
 
             if (!self::hasRegisteredLoader(AopComposerLoader::class)) {
@@ -185,26 +183,6 @@ class AspectSymfonyKernel extends AspectKernel
         }
 
         return $kernel;
-    }
-
-    /**
-     * Runs the callback with Symfony's DebugClassLoader lifted, when it is registered, and puts it back on top afterwards
-     *
-     * @param Closure(): void $callback
-     */
-    private static function withoutDebugClassLoader(Closure $callback): void
-    {
-        $debugClassLoaderEnabled = class_exists(DebugClassLoader::class, false) && self::hasRegisteredLoader(DebugClassLoader::class);
-        if ($debugClassLoaderEnabled) {
-            DebugClassLoader::disable();
-        }
-        try {
-            $callback();
-        } finally {
-            if ($debugClassLoaderEnabled) {
-                DebugClassLoader::enable();
-            }
-        }
     }
 
     /**
