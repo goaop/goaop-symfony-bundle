@@ -27,6 +27,7 @@ use ReflectionClass;
  *   cacheDir: string,
  *   includePaths: list<string>,
  *   excludePaths: list<string>,
+ *   parsedFilesLimit: int,
  *   features: int,
  *   cacheFileMode?: int
  * }
@@ -37,6 +38,7 @@ use ReflectionClass;
  *   cache_file_mode: int|string|null,
  *   include_paths: array<string>,
  *   exclude_paths: array<string>,
+ *   parsed_files_limit: int,
  *   features: array<string>,
  *   kernel_class: class-string<AspectSymfonyKernel>,
  *   cache_warmer: bool,
@@ -73,12 +75,13 @@ final class KernelOptionsResolver
         }
 
         $options = [
-            'debug'        => $config['debug'],
-            'appDir'       => $config['app_dir'],
-            'cacheDir'     => $config['cache_dir'],
-            'includePaths' => array_values($config['include_paths']),
-            'excludePaths' => array_values($config['exclude_paths']),
-            'features'     => $features,
+            'debug'            => $config['debug'],
+            'appDir'           => $config['app_dir'],
+            'cacheDir'         => $config['cache_dir'],
+            'includePaths'     => array_values($config['include_paths']),
+            'excludePaths'     => array_values($config['exclude_paths']),
+            'parsedFilesLimit' => $config['parsed_files_limit'],
+            'features'         => $features,
         ];
 
         $cacheFileMode = self::cacheFileMode($config['cache_file_mode']);

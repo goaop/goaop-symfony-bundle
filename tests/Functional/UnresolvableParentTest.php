@@ -61,7 +61,10 @@ class UnresolvableParentTest extends FunctionalTestCase
             $this->assertStringContainsString('Go! AOP failed to weave 1 file(s)', $message);
             $this->assertStringContainsString('[ERR]: ' . self::projectDir() . '/Admin/ReportController.php', $message);
             $this->assertStringContainsString(BaseClassGenerator::CLASS_NAME . ' was not found by locator', $message);
-            $this->assertStringContainsString('In the bundle configuration, the excludePaths option is go_aop.exclude_paths.', $message);
+            $this->assertStringContainsString(
+                'In the bundle configuration, the excludePaths option is go_aop.exclude_paths and the Features::PARTIAL_REFLECTION flag is go_aop.features: [PARTIAL_REFLECTION].',
+                $message,
+            );
             $this->assertSame(1, substr_count($message, 'loadable by Composer'), 'The framework explains the failure once');
             $this->assertStringNotContainsString('[OK]', $message, 'Only the failed files are reported');
             $this->assertStringNotContainsString('Total ', $message, 'Only the failed files are reported');
@@ -103,6 +106,20 @@ class UnresolvableParentTest extends FunctionalTestCase
         $this->assertInstanceOf(ReportController::class, $report);
         $this->assertInstanceOf(Proxy::class, $report);
         $this->assertSame('[Report x of generated base]', $report->render('x'));
+    }
+
+    public function testPartialReflectionWeavesTheClassWithItsOwnMembers(): void
+    {
+        self::runConsole(['cache:warmup', '--no-optional-warmers'], 'generated_partial');
+        $container = $this->bootKernel('generated_partial')->getContainer();
+
+        self::warmUpNextCache();
+        $this->assertContains('Admin/ReportController.php', self::listFiles(self::cacheRootDir() . '/next/aop'));
+
+        $report = $container->get(ReportController::class);
+        $this->assertInstanceOf(ReportController::class, $report);
+        $this->assertInstanceOf(Proxy::class, $report, 'The class is woven although Composer can not locate its parent');
+        $this->assertSame('[Report x of generated base]', $report->render('x'), 'Its own methods are intercepted');
     }
 
     /**

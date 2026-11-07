@@ -60,21 +60,13 @@ Some logic belongs to no single class and still ends up in hundreds of them: log
 
 - PHP >= 8.4
 - Symfony 7.4 or 8.x
-- goaop/framework 4.x (attribute-based aspects)
+- goaop/framework ^4.0 (attribute-based aspects)
 
 ## Installation
 
 ```bash
 composer require goaop/goaop-symfony-bundle
 ```
-
-> **Note**
-> Until goaop/framework 4.0 is tagged, the bundle depends on the unreleased `4.0-dev` line, so your application's `composer.json` needs:
->
-> ```json
-> "minimum-stability": "dev",
-> "prefer-stable": true
-> ```
 
 Register the bundle as the **first** entry of `config/bundles.php`. Weaving only applies to classes loaded after the aspect kernel is initialized, and bundles boot in registration order, so this is enforced: the container build fails with a clear message otherwise.
 
@@ -151,9 +143,16 @@ go_aop:
     # framework itself are always excluded).
     exclude_paths: []
 
+    # Number of parsed source files the weaver keeps in memory (about 0.2 MB each): more re-parses
+    # less, fewer uses less memory. The cache warmer uses it too, as does cache:warmup:aop
+    # unless --cached-files is given.
+    parsed_files_limit: 100
+
     # Framework features, by the name of the Go\Aop\Features constant:
     #   PREBUILT_CACHE     trust the deployed cache completely, never check or write it at runtime
     #   INTERCEPT_INCLUDES route include/require in woven files through the weaver (legacy code)
+    #   PARTIAL_REFLECTION weave classes whose parent class, interface or trait Composer can not
+    #                      locate, with their own members (see "Classes extending generated code")
     features: []
 
     # Aspect kernel class; extend Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel to customize
@@ -173,12 +172,13 @@ Environment variables work as everywhere in Symfony, e.g. `debug: '%env(bool:GOA
 
 | Command | Purpose |
 |---|---|
-| `cache:warmup:aop [--fail-fast] [--cache-dir=DIR]` | Weaves every file below the include paths into the cache. Fails when a file cannot be woven. The same warm-up runs as a cache warmer of `cache:warmup` and `cache:clear`. |
+| `cache:warmup:aop [--fail-fast] [--cache-dir=DIR] [--cached-files=N] [--preload[=FILE]]` | Weaves every file below the include paths into the cache. Fails when a file cannot be woven. The same warm-up runs as a cache warmer of `cache:warmup` and `cache:clear`. `--preload` also writes the `opcache.preload` script of the cache, see [Opcache preloading](#opcache-preloading). |
+| `cache:warmup:opcache [--file-cache=DIR] [--entry=FILE]` | Primes the opcache file cache (`opcache.file_cache`) with the AOP cache and the application, for containers that start with a hot opcache. Run it in the final image, with the settings it prints when they are missing. |
 | `debug:aspect [--aspect=FQCN]` | Lists the aspects with their pointcuts and advisors. |
 | `debug:advisor [--advisor=ID]` | Lists the advisors; with `--advisor` the joinpoints that advisor matches. The quickest way to check a pointcut expression. |
 | `debug:weaving [-v]` | Weaves the application twice and reports proxies that differ, which points to a non-deterministic aspect. |
 
-These are the commands of the framework itself, registered in the console of the application: they work on the running aspect kernel, so the loader argument of `vendor/bin/aspect` is omitted. `cache:warmup:aop --cache-dir=DIR` builds the cache in another directory, from scratch, which is what the cache warmer does during `cache:clear`.
+These are the commands of the framework itself, registered in the console of the application: they work on the running aspect kernel, so the loader argument of `vendor/bin/aspect` is omitted. `cache:warmup:aop --cache-dir=DIR` builds the cache in another directory, from scratch, which is what the cache warmer does during `cache:clear`. `cache:warmup:aop --workers=N` weaves in one process here: its worker processes would boot the kernel with a loader file, and the console of the application has none. Symfony's `DebugClassLoader` is lifted while these commands run in debug mode: it hides the Composer autoloader that the preload script and the file cache primer read.
 
 ## Deployment
 
@@ -197,7 +197,7 @@ The warm-up fails when a file cannot be woven, so a deployment stops instead of 
 
 ### Trust the cache in production
 
-With `features: [PREBUILT_CACHE]` the runtime skips every cache-related file system check (directory probes, `filemtime` comparisons, aspect freshness) and never writes to the cache directory. Rebuild the cache on every deployment. This is the recommended production setting, and it is what makes read-only file systems and immutable images work:
+With `features: [PREBUILT_CACHE]` the runtime skips every cache-related file system check (directory probes, `filemtime` comparisons, aspect freshness) and never weaves nor writes to the cache directory: a class below the include paths that the cache does not know fails with a `WeavingException` ("... is missing from the prebuilt AOP cache ..."). Rebuild the cache on every deployment. This is the recommended production setting, and it is what makes read-only file systems and immutable images work:
 
 ```yaml
 when@prod:
@@ -205,23 +205,25 @@ when@prod:
         features: [PREBUILT_CACHE]
 ```
 
+The commands that build the cache (`cache:clear`, `cache:warmup`, `cache:warmup:aop`, `debug:weaving`) boot the application first, and `cache:clear` compiles the new container before the cache is woven: in their process a class the cache misses is loaded as it is instead of failing, and woven by the warm-up.
+
 If your `kernel.build_dir` differs from `kernel.cache_dir` (read-only build directory, writable cache directory), anchor the AOP cache on the directory you build at deploy time: `cache_dir: '%kernel.build_dir%/aop'`.
 
 ### Opcache preloading
 
-Symfony's preload file loads the classes of your services through the autoloader, so without the aspect kernel it would preload the original classes, and a preloaded class can not be woven anymore. Boot the kernel in `config/preload.php` before requiring the container preload file: booting initializes the aspect kernel, and the woven classes are preloaded instead.
+Symfony's preload file loads the classes of your services through the autoloader, so on its own it would preload the original classes, and a preloaded class can not be woven anymore. In production mode the cache warmer of `cache:clear` and `cache:warmup` also writes the `opcache.preload` script of the AOP cache, `_preload.php` in the cache directory: it hands the woven class map to Composer, defines the constants the woven files use, and preloads every woven and untransformed class of the include paths. Require it in `config/preload.php` before the preload file of the container, which then preloads the woven classes of your services together with the classes of Symfony and `vendor/`:
 
 ```php
 // config/preload.php
-use App\Kernel;
-
-require dirname(__DIR__).'/vendor/autoload.php';
-
 if (file_exists(dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php')) {
-    (new Kernel('prod', false))->boot();
+    require dirname(__DIR__).'/var/cache/prod/aop/_preload.php';
     require dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php';
 }
 ```
+
+Adapt the path of `_preload.php` when `cache_dir` is not `%kernel.cache_dir%/aop`. The script locates everything relative to its own directory, so it stays valid when `cache:clear` renames the new cache directory, and it lists the classes of exactly the cache it was built with: it is rebuilt with the cache. `bin/console cache:warmup:aop --preload[=FILE]` writes it on demand.
+
+Do not boot the kernel in `config/preload.php`: booting creates services whose files the container preload file includes again, which fails with "Cannot redeclare class".
 
 ## Doctrine ORM
 
@@ -257,7 +259,8 @@ With `symfony/web-profiler-bundle` installed, the toolbar shows the number of as
 
 - **"GoAopBundle must be the first bundle in config/bundles.php"** — move its line above every other bundle (the internal component bundles of Symfony 8.1 are fine before it). Symfony Flex appends new bundles at the end, so this happens once right after `composer require`.
 - **An aspect does not apply.** Check `debug:advisor --advisor=...` first: it lists the joinpoints a pointcut matches. Then make sure the class lies below an include path and is not loaded before the bundle boots (profiler panel, *classes loaded before weaving*). Vendor code is only woven when its directory is an include path.
-- **Everything works in dev but not in prod.** The production cache is built at deploy time: run `cache:clear` or `cache:warmup`, and keep `PREBUILT_CACHE` on only when the deployment rebuilds the cache. Check that nothing defines `.container.dumper.inline_class_loader: true`, and that `config/preload.php` boots the kernel before the container preload file when preloading is enabled.
+- **"Class ... is missing from the prebuilt AOP cache"** — with `PREBUILT_CACHE` the cache must hold every class below the include paths: the deployment shipped code that the cache was not built for. Run `bin/console cache:clear` (or `cache:warmup`) as part of the deployment, after the code is in place.
+- **Everything works in dev but not in prod.** The production cache is built at deploy time: run `cache:clear` or `cache:warmup`, and keep `PREBUILT_CACHE` on only when the deployment rebuilds the cache. Check that nothing defines `.container.dumper.inline_class_loader: true`, and that `config/preload.php` requires the `_preload.php` of the AOP cache before the container preload file when preloading is enabled.
 - **"Circular reference detected for the aspect ..."** — an aspect is created by the container when one of its advices runs first, after its dependencies. An aspect can depend on a woven service, even on one it advises; but when creating one of its dependencies runs an advice of the same aspect (the aspect advises the constructor of a service it depends on, a method that this constructor calls, or code that another dependency runs while it is created), that advice would run on an aspect that does not exist yet. The message shows the path from the aspect to its advice. Inject the dependency lazily, so that the aspect can be created first:
   ```php
   public function __construct(
@@ -276,14 +279,15 @@ The weaver reads a class from its source file without loading it, and it reads t
 - declared by `class_alias()` in a file that Composer maps to the alias name;
 - defined in a file Composer does not know about (included by hand, or loaded from a PHAR by another autoloader).
 
-It fails as soon as the class part of a pointcut matches the class (`App\Admin\*`, `App\**`, ...), even when in the end no advice applies to any of its methods: the weaver reflects every method of the class, inherited ones included. Classes that no pointcut can match are loaded as they are. The class loader throws when it weaves such a class, in debug and in production mode, and the warm-up of `cache:warmup` and `cache:clear` fails with the same message for each file and a hint:
+It fails as soon as the class part of a pointcut matches the class (`App\Admin\*`, `App\**`, ...), even when in the end no advice applies to any of its methods: the weaver reflects every method of the class, inherited ones included. Classes that no pointcut can match are loaded as they are. Unless the `PARTIAL_REFLECTION` feature is enabled (option 2 below), the class loader throws when it weaves such a class, in debug and in production mode, and the warm-up of `cache:warmup` and `cache:clear` fails with the same message for each file and a hint:
 
 ```
 Go\Aop\Exception\WeavingException: Go\Instrument\Transformer\WeavingTransformer failed to transform
 /app/src/Admin/ReportController.php: Class Acme\Generated\BaseReportController was not found by locator. The weaver
 reads the parents, interfaces and traits of a class from their source files, which it finds through Composer: make
 Acme\Generated\BaseReportController loadable by Composer (...), or exclude the classes that depend on it from weaving
-with the excludePaths option.
+with the excludePaths option. With the Features::PARTIAL_REFLECTION flag, a class whose parent class, interface or
+trait can not be located is woven with its own members.
 ```
 
 For a `class_alias()` file the message ends with `Class Acme\OldName was not found in the /path/to/alias.php` instead. The failure depends on what the process loaded before: the request (or command) that compiles the container loads the service classes and their ancestors first, so it often works there and fails on the next request, or only in a `cache:warmup` that finds the container already built.
@@ -302,12 +306,18 @@ To fix it, from the best option to the least intrusive one:
    }
    ```
    The generated files must exist when the class is woven: generate them before the cache warm-up.
-2. **Exclude the classes that depend on it** from weaving. They are loaded as they are, without aspects:
+2. **Weave the class with what can be located**, with the `PARTIAL_REFLECTION` feature:
+   ```yaml
+   go_aop:
+       features: [PARTIAL_REFLECTION]
+   ```
+   A class whose parent class, interface or trait can not be located is woven with its own methods and properties and the ones of the ancestors that can be; the members it inherits from a missing ancestor are not intercepted. The woven class still extends the missing parent class (and implements the missing interfaces), so they must be loadable when the class is loaded.
+3. **Exclude the classes that depend on it** from weaving. They are loaded as they are, without aspects:
    ```yaml
    go_aop:
        exclude_paths: ['%kernel.project_dir%/src/Admin']
    ```
-3. **Keep `include_paths` narrow**: list the directories your aspects are meant for (`src/Service`, `src/Domain`, ...) rather than `src` or the whole project. Only the AOP cache directory and the framework with its runtime dependencies are excluded automatically: an include path that covers the rest of `%kernel.cache_dir%` or `vendor/` weaves the code there too, generated code included.
+4. **Keep `include_paths` narrow**: list the directories your aspects are meant for (`src/Service`, `src/Domain`, ...) rather than `src` or the whole project. Only the AOP cache directory and the framework with its runtime dependencies are excluded automatically: an include path that covers the rest of `%kernel.cache_dir%` or `vendor/` weaves the code there too, generated code included.
 
 ## Upgrading from 2.x
 

@@ -15,6 +15,7 @@ namespace Go\Symfony\GoAopBundle\CacheWarmer;
 use Go\Core\AspectKernel;
 use Go\Instrument\ClassLoading\CacheWarmer;
 use Go\Instrument\PathResolver;
+use Go\Symfony\GoAopBundle\Kernel\DebugClassLoaderGuard;
 use RuntimeException;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -27,6 +28,10 @@ use Symfony\Component\HttpKernel\CacheWarmer\CacheWarmerInterface;
  * temporary directory and renames it afterwards). The framework builds the cache in any directory
  * while the kernel of the process keeps running on its own, so the configured cache directory is
  * rebased on the directory Symfony asks to warm up.
+ *
+ * In production mode the opcache.preload script of the cache is written along with it (`_preload.php` in the
+ * cache directory, location independent like the rest of the cache), which config/preload.php requires before
+ * the preload file of the container.
  *
  * @phpstan-import-type UserKernelOptions from AspectKernel
  */
@@ -54,14 +59,24 @@ final class AspectCacheWarmer implements CacheWarmerInterface
 
     public function warmUp(string $cacheDir, ?string $buildDir = null): array
     {
-        $targetDir = $this->resolveTargetDir($cacheDir, $buildDir ?? $cacheDir);
+        $targetDir     = $this->resolveTargetDir($cacheDir, $buildDir ?? $cacheDir);
+        $kernelOptions = $this->aspectKernel->getOptions();
         // Verbose output lists one line per file instead of a progress bar, the errors are picked from it
-        $output    = new BufferedOutput(OutputInterface::VERBOSITY_VERBOSE);
+        $output = new BufferedOutput(OutputInterface::VERBOSITY_VERBOSE);
         // The directory of the running kernel is warmed up in place, any other one is built next to it
-        $otherDir = self::isSameDirectory($targetDir, $this->aspectKernel->getOptions()['cacheDir']) ? null : $targetDir;
-        $warmer   = new CacheWarmer($this->aspectKernel, $output, cacheDir: $otherDir);
+        $otherDir = self::isSameDirectory($targetDir, $kernelOptions['cacheDir']) ? null : $targetDir;
+        $warmer   = new CacheWarmer(
+            $this->aspectKernel,
+            $output,
+            // As many parsed files in memory as the kernel keeps, like cache:warmup:aop without --cached-files
+            cachedFiles: $kernelOptions['parsedFilesLimit'],
+            cacheDir: $otherDir,
+            // In production also the opcache.preload script of the cache, _preload.php, for config/preload.php
+            preloadFile: $kernelOptions['debug'] ? null : '',
+        );
 
-        $errors = $warmer->warmUp();
+        // The preload script is written from the Composer autoloader, which the DebugClassLoader hides
+        $errors = DebugClassLoaderGuard::lifted($warmer->warmUp(...));
         if ($errors > 0) {
             $errorLines = self::errorLines($output->fetch());
 
@@ -127,9 +142,9 @@ final class AspectCacheWarmer implements CacheWarmerInterface
     }
 
     /**
-     * Names the bundle option for the most common failure: the weaver reads the ancestors of a class from their
+     * Names the bundle options for the most common failure: the weaver reads the ancestors of a class from their
      * source files, which it finds through Composer, unless they are already declared. The framework explains the
-     * failure in the error of the file, with the name of its kernel option.
+     * failure in the error of the file, with the names of its kernel option and feature flag.
      */
     private static function hint(string $errorLines): string
     {
@@ -137,6 +152,12 @@ final class AspectCacheWarmer implements CacheWarmerInterface
             return '';
         }
 
-        return "\n\nIn the bundle configuration, the excludePaths option is go_aop.exclude_paths.";
+        $hint = "\n\nIn the bundle configuration, the excludePaths option is go_aop.exclude_paths";
+        // The framework names the flag for the ancestors Composer can not locate, which the flag solves
+        if (str_contains($errorLines, 'PARTIAL_REFLECTION')) {
+            $hint .= ' and the Features::PARTIAL_REFLECTION flag is go_aop.features: [PARTIAL_REFLECTION]';
+        }
+
+        return $hint . '.';
     }
 }

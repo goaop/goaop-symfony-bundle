@@ -708,6 +708,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     cache_file_mode?: scalar|Param|null, // Permissions of the cache files, as an octal literal (0o770), an octal string ("0770") or an integer. Defaults to 0770 minus the umask. // Default: null
  *     include_paths?: list<scalar|Param|null>,
  *     exclude_paths?: list<scalar|Param|null>,
+ *     parsed_files_limit?: int|Param, // Number of parsed source files the weaver keeps in memory (about 0.2 MB each): more re-parses less, fewer uses less memory. Also the default of cache:warmup:aop --cached-files and the number the cache warmer uses. // Default: 100
  *     features?: Param|string|list<scalar|Param|null>,
  *     kernel_class?: scalar|Param|null, // Aspect kernel class, extend Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel to customize the transformation pipeline. // Default: "Go\\Symfony\\GoAopBundle\\Kernel\\AspectSymfonyKernel"
  *     cache_warmer?: bool|Param, // Weave every file below the include paths during cache:warmup and cache:clear, so no weaving happens at runtime. // Default: true

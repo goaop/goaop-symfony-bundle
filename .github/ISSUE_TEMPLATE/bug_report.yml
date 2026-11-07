@@ -21,7 +21,7 @@ body:
     id: versions
     attributes:
       label: Versions
-      placeholder: PHP 8.4.x, Symfony 7.4.x, goaop/framework 4.x-dev, goaop/goaop-symfony-bundle 4.x-dev
+      placeholder: PHP 8.4.x, Symfony 7.4.x, goaop/framework 4.0.0, goaop/goaop-symfony-bundle 4.0.0
     validations:
       required: true
   - type: textarea

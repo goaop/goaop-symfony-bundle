@@ -14,42 +14,45 @@ class KernelOptionsResolverTest extends TestCase
     public function testOptionsAreTranslatedToKernelOptionNames(): void
     {
         $options = KernelOptionsResolver::fromConfig([
-            'debug'           => true,
-            'app_dir'         => '/app',
-            'cache_dir'       => '/app/var/cache/aop',
-            'cache_file_mode' => '0750',
-            'include_paths'   => ['one' => '/app/src', 'two' => '/app/lib'],
-            'exclude_paths'   => ['/app/src/Legacy'],
-            'features'        => ['PREBUILT_CACHE', 'INTERCEPT_INCLUDES'],
-            'kernel_class'    => AspectSymfonyKernel::class,
-            'cache_warmer'    => true,
-            'doctrine'        => null,
+            'debug'              => true,
+            'app_dir'            => '/app',
+            'cache_dir'          => '/app/var/cache/aop',
+            'cache_file_mode'    => '0750',
+            'include_paths'      => ['one' => '/app/src', 'two' => '/app/lib'],
+            'exclude_paths'      => ['/app/src/Legacy'],
+            'parsed_files_limit' => 250,
+            'features'           => ['PREBUILT_CACHE', 'INTERCEPT_INCLUDES'],
+            'kernel_class'       => AspectSymfonyKernel::class,
+            'cache_warmer'       => true,
+            'doctrine'           => null,
         ]);
 
         $this->assertSame([
-            'debug'         => true,
-            'appDir'        => '/app',
-            'cacheDir'      => '/app/var/cache/aop',
-            'includePaths'  => ['/app/src', '/app/lib'],
-            'excludePaths'  => ['/app/src/Legacy'],
-            'features'      => Features::PREBUILT_CACHE | Features::INTERCEPT_INCLUDES,
-            'cacheFileMode' => 0o750,
+            'debug'            => true,
+            'appDir'           => '/app',
+            'cacheDir'         => '/app/var/cache/aop',
+            'includePaths'     => ['/app/src', '/app/lib'],
+            'excludePaths'     => ['/app/src/Legacy'],
+            'parsedFilesLimit' => 250,
+            'features'         => Features::PREBUILT_CACHE | Features::INTERCEPT_INCLUDES,
+            'cacheFileMode'    => 0o750,
         ], $options);
     }
 
     public function testCacheFileModeIsOmittedWhenNotConfigured(): void
     {
         $options = KernelOptionsResolver::fromConfig([
-            'debug'           => '%kernel.debug%',
-            'app_dir'         => '/app',
-            'cache_dir'       => '/app/var/cache/aop',
-            'cache_file_mode' => null,
-            'include_paths'   => [],
-            'exclude_paths'   => [],
-            'features'        => [],
-            'kernel_class'    => AspectSymfonyKernel::class,
-            'cache_warmer'    => true,
-            'doctrine'        => null,
+            'debug'              => '%kernel.debug%',
+            'app_dir'            => '/app',
+            'cache_dir'          => '/app/var/cache/aop',
+            'cache_file_mode'    => null,
+            'include_paths'      => [],
+            'exclude_paths'      => [],
+            'parsed_files_limit' => 100,
+            'features'           => [],
+            'kernel_class'       => AspectSymfonyKernel::class,
+            'cache_warmer'       => true,
+            'doctrine'           => null,
         ]);
 
         $this->assertArrayNotHasKey('cacheFileMode', $options);
@@ -79,6 +82,6 @@ class KernelOptionsResolverTest extends TestCase
 
     public function testFeatureNamesComeFromTheFrameworkConstants(): void
     {
-        $this->assertSame(['INTERCEPT_INCLUDES', 'PREBUILT_CACHE'], KernelOptionsResolver::featureNames());
+        $this->assertSame(['INTERCEPT_INCLUDES', 'PREBUILT_CACHE', 'PARTIAL_REFLECTION'], KernelOptionsResolver::featureNames());
     }
 }

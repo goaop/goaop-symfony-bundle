@@ -25,13 +25,14 @@ composer analyse            # phpstan, level max (src/ only)
 | Environment | Mode | Purpose |
 |---|---|---|
 | `test` | debug | weaving on demand, the default |
-| `prod` | production, `PREBUILT_CACHE` | the cache must be warmed up before booting |
+| `prod` | production, `PREBUILT_CACHE` | the cache must be warmed up before booting; `parsed_files_limit: 50`, to check that the option reaches the kernel and the cache warmer |
 | `doctrine` | debug | DoctrineBundle with an attribute-mapped entity |
 | `profiler` | debug | the web profiler and a `/greet` route |
 | `misplaced` | — | GoAopBundle registered after FrameworkBundle, for the ordering check |
 | `signatures` | debug | the woven classes of `src/Signature` and their aspect, for the DebugClassLoader checks (#23) |
 | `generated` | debug | also weaves `Admin/`, whose class extends a class generated into the cache directory that Composer can not locate (`BaseClassGenerator`, #17) |
 | `generated_excluded` | debug | `generated` with `Admin/` in `exclude_paths` |
+| `generated_partial` | debug | `generated` with the `PARTIAL_REFLECTION` feature: the class is woven with its own members |
 | `cycle` | debug | the aspects of `src/Cycle`, which depend on the services they advise, for the circular reference checks (#15) |
 
 Adding an environment:
@@ -52,4 +53,4 @@ Adding an environment:
 
 ## Testing against a local framework checkout
 
-Until goaop/framework 4.0 is tagged, the suite runs against the `4.0-dev` line (`minimum-stability: dev`, `prefer-stable: true`). To test a change of the framework, add a path repository pointing at your checkout to your local `composer.json` and run `composer update goaop/framework`. Do not commit it.
+The suite runs against the stable releases of goaop/framework 4.x. To test a change of the framework, add a path repository pointing at your checkout to your local `composer.json`, require `"goaop/framework": "^4.0@dev"` (a checkout of `master` is the `4.0-dev` branch alias) and run `composer update goaop/framework`. Do not commit it.

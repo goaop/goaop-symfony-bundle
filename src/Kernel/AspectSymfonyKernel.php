@@ -19,11 +19,11 @@ use Go\Core\AspectContainer;
 use Go\Core\AspectKernel;
 use Go\Instrument\ClassLoading\AopComposerLoader;
 use Go\Instrument\FileSystem\Enumerator;
+use Go\ParserReflection\ReflectionEngine;
 use Go\Symfony\GoAopBundle\Exception\AspectCircularReferenceException;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
-use Symfony\Component\ErrorHandler\DebugClassLoader;
 use Symfony\Contracts\Service\ServiceProviderInterface;
 
 /**
@@ -62,14 +62,18 @@ class AspectSymfonyKernel extends AspectKernel
     public static function create(array $options, ServiceProviderInterface $aspects, ContainerInterface $application): static
     {
         $kernel = self::instance();
-        $kernel->init($options);
+        // In debug mode the framework tracks the file of every registered aspect, which it finds through the Composer
+        // loaders: behind the DebugClassLoader it would autoload the aspect instead
+        DebugClassLoaderGuard::lifted(static function () use ($kernel, $options, $aspects, $application): void {
+            $kernel->init($options);
 
-        $aspectContainer = $kernel->getContainer();
-        $aspectContainer->setDelegate($application);
-        foreach (array_keys($aspects->getProvidedServices()) as $aspectClass) {
-            /** @var class-string<Aspect> $aspectClass */
-            $aspectContainer->addLazyService($aspectClass, static fn(): Aspect => self::createAspect($aspects, $aspectClass));
-        }
+            $aspectContainer = $kernel->getContainer();
+            $aspectContainer->setDelegate($application);
+            foreach (array_keys($aspects->getProvidedServices()) as $aspectClass) {
+                /** @var class-string<Aspect> $aspectClass */
+                $aspectContainer->addLazyService($aspectClass, static fn(): Aspect => self::createAspect($aspects, $aspectClass));
+            }
+        });
 
         return $kernel;
     }
@@ -79,7 +83,8 @@ class AspectSymfonyKernel extends AspectKernel
      *
      * Symfony's DebugClassLoader wraps the Composer class loader in debug mode, which hides it from the
      * Go! AOP class loader. The wrapping is lifted for the time of the initialization and put back on top
-     * of the Go! AOP loader afterwards, so that both keep working.
+     * of the Go! AOP loader afterwards, so that both keep working. The weaver locates the sources of classes
+     * through the Composer loaders as well, behind the DebugClassLoader too ({@see DebugClassLoaderAwareLocator}).
      */
     public function init(array $options = []): void
     {
@@ -87,16 +92,9 @@ class AspectSymfonyKernel extends AspectKernel
             return;
         }
 
-        $debugClassLoaderEnabled = class_exists(DebugClassLoader::class, false) && self::hasRegisteredLoader(DebugClassLoader::class);
-        if ($debugClassLoaderEnabled) {
-            DebugClassLoader::disable();
-        }
-        try {
+        DebugClassLoaderGuard::lifted(function () use ($options): void {
             parent::init($options);
 
-            if ($this->options['debug']) {
-                $this->classesDeclaredBeforeInitialization = get_declared_classes();
-            }
             if (!self::hasRegisteredLoader(AopComposerLoader::class)) {
                 throw new LogicException(sprintf(
                     'Go! AOP could not hook into the class loader: no "%s" instance is registered with spl_autoload_register(). '
@@ -105,11 +103,13 @@ class AspectSymfonyKernel extends AspectKernel
                     ClassLoader::class,
                 ));
             }
-        } finally {
-            if ($debugClassLoaderEnabled) {
-                DebugClassLoader::enable();
+            // Replaces the locator of the framework, which finds no Composer loader behind the DebugClassLoader
+            ReflectionEngine::init(new DebugClassLoaderAwareLocator(), null, ReflectionEngine::getMissingAncestorPolicy());
+
+            if ($this->options['debug']) {
+                $this->classesDeclaredBeforeInitialization = get_declared_classes();
             }
-        }
+        });
     }
 
     /**

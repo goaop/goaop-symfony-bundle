@@ -7,10 +7,14 @@ namespace Go\Symfony\GoAopBundle\Tests\Functional;
 use Go\Aop\Features;
 use Go\Aop\Proxy;
 use Go\Core\AspectKernel;
+use Go\ParserReflection\ReflectionEngine;
+use Go\Symfony\GoAopBundle\CacheWarmer\AspectCacheWarmer;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Service\GreetingService;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Service\Recorder;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Process\Process;
 
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]
@@ -52,5 +56,76 @@ class CacheWarmupTest extends FunctionalTestCase
         $this->assertInstanceOf(Recorder::class, $recorder);
         $this->assertSame('Hello, prod!', $greeting->greet('prod'));
         $this->assertSame(['before:greet', 'after:greet'], $recorder->events);
+    }
+
+    public function testProductionCacheComesWithItsPreloadScript(): void
+    {
+        self::runConsole(['cache:clear'], 'prod');
+        $preloadScript = self::cacheRootDir() . '/prod/aop/_preload.php';
+        $this->assertFileExists($preloadScript);
+        if (!extension_loaded('Zend OPcache')) {
+            $this->markTestSkipped('The opcache extension is not loaded');
+        }
+
+        // A process started with the script preloads the woven classes, which are declared before any code runs
+        $preloadSettings = ['-d', 'opcache.enable_cli=1', '-d', 'opcache.preload=' . $preloadScript];
+        if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+            $preloadSettings = [...$preloadSettings, '-d', 'opcache.preload_user=root'];
+        }
+        $process = new Process(
+            [PHP_BINARY, ...$preloadSettings, '-r', 'echo json_encode(class_exists($argv[1], false) && is_subclass_of($argv[1], $argv[2]));', GreetingService::class, Proxy::class],
+        );
+        $process->mustRun();
+        $this->assertSame('true', $process->getOutput(), $process->getErrorOutput());
+    }
+
+    public function testDebugCacheHasNoPreloadScript(): void
+    {
+        self::runConsole(['cache:warmup']);
+
+        $this->assertFileExists(self::cacheRootDir() . '/test/aop/src/Service/GreetingService.php');
+        $this->assertFileDoesNotExist(self::cacheRootDir() . '/test/aop/_preload.php');
+    }
+
+    public function testCacheClearRebuildsAPrebuiltCacheThatMissesClasses(): void
+    {
+        self::runConsole(['cache:clear'], 'prod');
+        // The deployed cache misses classes of the release (here all of them), the container is kept
+        new Filesystem()->remove(self::cacheRootDir() . '/prod/aop');
+        // Older than the next process: cache:clear compiles a new container, which loads the service classes before
+        // the AOP cache warmer runs, in a process whose aspect kernel serves the incomplete cache (#808)
+        foreach (glob(self::cacheRootDir() . '/prod/Container*/*.php') ?: [] as $file) {
+            touch($file, time() - 60);
+        }
+
+        $process = self::runConsole(['cache:clear', '-v'], 'prod');
+        $this->assertStringContainsString('Warming up cache', $process->getOutput(), 'A new container is compiled');
+        $this->assertStringContainsString('successfully cleared', $process->getOutput());
+        $this->assertFileExists(self::cacheRootDir() . '/prod/aop/src/Service/GreetingService.php');
+
+        $greeting = $this->bootKernel('prod')->getContainer()->get(GreetingService::class);
+        $this->assertInstanceOf(Proxy::class, $greeting, 'The woven class is served from the rebuilt cache');
+    }
+
+    public function testCacheWarmerKeepsAsManyParsedFilesAsTheKernel(): void
+    {
+        $this->bootKernel('prod');
+        $aspectKernel = AspectKernel::getInstance();
+        $this->assertSame(50, $aspectKernel->getOptions()['parsedFilesLimit']);
+        $this->assertSame(50, self::maximumCachedFiles(), 'The kernel applies the option');
+
+        // The warm-up sets the limit of its own weaving process, from the option of the kernel
+        ReflectionEngine::setMaximumCachedFiles(7);
+        $directory = self::cacheRootDir() . '/next';
+        mkdir($directory, 0o777, true);
+        new AspectCacheWarmer($aspectKernel, $aspectKernel->getOptions(), ['anchor' => 'cache', 'suffix' => '/aop'])->warmUp($directory);
+
+        $this->assertFileExists($directory . '/aop/src/Service/GreetingService.php');
+        $this->assertSame(50, self::maximumCachedFiles());
+    }
+
+    private static function maximumCachedFiles(): mixed
+    {
+        return new \ReflectionProperty(ReflectionEngine::class, 'maximumCachedFiles')->getValue();
     }
 }
