@@ -8,6 +8,7 @@ use Go\Aop\Aspect;
 use Go\Aop\Proxy;
 use Go\Core\AspectContainer;
 use Go\Core\AspectKernel;
+use Go\ParserReflection\ReflectionEngine;
 use Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Aspect\EntityAspect;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Aspect\LoggingAspect;
@@ -100,6 +101,12 @@ class KernelBootTest extends FunctionalTestCase
         $autoloaders = spl_autoload_functions();
         $this->assertIsArray($autoloaders[0]);
         $this->assertInstanceOf(DebugClassLoader::class, $autoloaders[0][0], 'The DebugClassLoader is enabled again after the initialization');
+        $this->assertFalse(class_exists(LoggingAspect::class, false), 'Registering the aspects does not load them');
+        // The weaver reflects the ancestors of a class from their sources, through the loaders behind the DebugClassLoader
+        $this->assertSame(
+            self::projectDir() . '/src/Service/GreetingService.php',
+            ReflectionEngine::locateClassFile(GreetingService::class),
+        );
 
         $greeting = $container->get(GreetingService::class);
         $this->assertInstanceOf(Proxy::class, $greeting);
