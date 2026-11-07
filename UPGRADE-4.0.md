@@ -7,7 +7,8 @@ follows the framework: bundle 4.x works with goaop/framework 4.x.
 Requirements
 ------------
 
-- PHP 8.4+, Symfony 7.4 or 8.x, goaop/framework 4.x (`minimum-stability: dev` until 4.0 is tagged).
+- PHP 8.4+, Symfony 7.4 or 8.x, goaop/framework ^4.0. Both are stable releases: an application that only set
+  `minimum-stability: dev` for the 4.0 development line can drop it.
 - Aspects declare advices with PHP attributes (`#[Before]`, `#[After]`, `#[Around]`,
   `#[AfterThrowing]`, `#[Pointcut]`, `#[DeclareParents]`); Doctrine annotations are gone.
   Advice methods must be `public`. See the [framework upgrade guide](https://github.com/goaop/framework/blob/master/UPGRADE-4.0.md).

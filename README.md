@@ -60,21 +60,13 @@ Some logic belongs to no single class and still ends up in hundreds of them: log
 
 - PHP >= 8.4
 - Symfony 7.4 or 8.x
-- goaop/framework 4.x (attribute-based aspects)
+- goaop/framework ^4.0 (attribute-based aspects)
 
 ## Installation
 
 ```bash
 composer require goaop/goaop-symfony-bundle
 ```
-
-> **Note**
-> Until goaop/framework 4.0 is tagged, the bundle depends on the unreleased `4.0-dev` line, so your application's `composer.json` needs:
->
-> ```json
-> "minimum-stability": "dev",
-> "prefer-stable": true
-> ```
 
 Register the bundle as the **first** entry of `config/bundles.php`. Weaving only applies to classes loaded after the aspect kernel is initialized, and bundles boot in registration order, so this is enforced: the container build fails with a clear message otherwise.
 

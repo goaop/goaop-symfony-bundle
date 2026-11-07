@@ -53,4 +53,4 @@ Adding an environment:
 
 ## Testing against a local framework checkout
 
-Until goaop/framework 4.0 is tagged, the suite runs against the `4.0-dev` line (`minimum-stability: dev`, `prefer-stable: true`). To test a change of the framework, add a path repository pointing at your checkout to your local `composer.json` and run `composer update goaop/framework`. Do not commit it.
+The suite runs against the stable releases of goaop/framework 4.x. To test a change of the framework, add a path repository pointing at your checkout to your local `composer.json`, require `"goaop/framework": "^4.0@dev"` (a checkout of `master` is the `4.0-dev` branch alias) and run `composer update goaop/framework`. Do not commit it.

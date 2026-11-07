@@ -37,7 +37,7 @@ Load-bearing constraints (do not "simplify" these away):
 ## Development commands
 
 ```bash
-composer install            # needs minimum-stability: dev (goaop/framework 4.x-dev)
+composer install
 composer validate --strict
 composer test               # phpunit (boots the fixture app in tests/Fixtures/App)
 composer analyse            # phpstan, level max
@@ -60,4 +60,4 @@ The test suite (fixture application, environments, process isolation rules) is d
 - Do not subclass the framework commands or dump bootstrap files to run the kernel outside of Symfony: the framework commands discover the running kernel, and the preload recipe requires the `_preload.php` of the AOP cache before the container preload file (booting the Symfony kernel there redeclares the container factories that the boot loaded).
 - Do not add `containerClass` to the configuration: the framework default (`Go\Core\Container`) is correct and `Go\Core\GoAspectContainer` no longer exists.
 - Do not make the cache warmer non-optional: the cache is built on demand at runtime, the warm-up is for deployments.
-- The upstream 4.x line is unreleased: composer requires `minimum-stability: dev` + `prefer-stable: true`. Do not "fix" that to stable until goaop/framework 4.0 is tagged.
+- The bundle requires the stable `goaop/framework: ^4.0` and no `minimum-stability`; the bundle versions follow the framework (bundle 4.x for framework 4.x). Do not require a dev version of the framework in `composer.json`: test a framework change against a local checkout (tests/AGENTS.md) and raise the minimum version once it is released.
