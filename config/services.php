@@ -6,9 +6,11 @@ use Go\Console\Command\CacheWarmupCommand;
 use Go\Console\Command\DebugAdvisorCommand;
 use Go\Console\Command\DebugAspectCommand;
 use Go\Console\Command\DebugWeavingCommand;
+use Go\Console\Command\OpcacheWarmupCommand;
 use Go\Core\AspectContainer;
 use Go\Core\AspectKernel;
 use Go\Symfony\GoAopBundle\CacheWarmer\AspectCacheWarmer;
+use Go\Symfony\GoAopBundle\Console\FrameworkCommandSubscriber;
 use Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
@@ -42,7 +44,17 @@ return static function (ContainerConfigurator $container): void {
         ->tag('kernel.cache_warmer');
 
     // The commands of the framework work on the kernel of the process when it is initialized, as it is here
-    foreach ([CacheWarmupCommand::class, DebugAspectCommand::class, DebugAdvisorCommand::class, DebugWeavingCommand::class] as $command) {
+    $commands = [
+        CacheWarmupCommand::class,
+        OpcacheWarmupCommand::class,
+        DebugAspectCommand::class,
+        DebugAdvisorCommand::class,
+        DebugWeavingCommand::class,
+    ];
+    foreach ($commands as $command) {
         $services->set($command)->tag('console.command');
     }
+
+    // Lifts the DebugClassLoader while they run, which hides the Composer loader from their build tooling
+    $services->set(FrameworkCommandSubscriber::class)->tag('kernel.event_subscriber');
 };

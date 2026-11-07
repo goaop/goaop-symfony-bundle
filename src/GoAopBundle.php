@@ -15,7 +15,9 @@ namespace Go\Symfony\GoAopBundle;
 use Go\Aop\Aspect;
 use Go\Bridge\Doctrine\MetadataLoadInterceptor;
 use Go\Core\AspectKernel;
+use Go\Instrument\ClassLoading\CachePathManager;
 use Go\Symfony\GoAopBundle\CacheWarmer\AspectCacheWarmer;
+use Go\Symfony\GoAopBundle\Console\BuildCommandDetector;
 use Go\Symfony\GoAopBundle\DataCollector\AspectDataCollector;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\AspectCollectorPass;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\ClassSignatureResourcePass;
@@ -114,6 +116,11 @@ final class GoAopBundle extends AbstractBundle
                     ->scalarPrototype()->cannotBeEmpty()->end()
                     ->defaultValue([])
                 ->end()
+                ->integerNode('parsed_files_limit')
+                    ->info('Number of parsed source files the weaver keeps in memory (about 0.2 MB each): more re-parses less, fewer uses less memory. Also the default of cache:warmup:aop --cached-files and the number the cache warmer uses.')
+                    ->min(1)
+                    ->defaultValue(AspectKernel::DEFAULT_PARSED_FILES_LIMIT)
+                ->end()
                 ->arrayNode('features')
                     ->info(sprintf('Framework features to enable, by the name of the Go\Aop\Features constant: %s.', implode(', ', $featureNames)))
                     ->scalarPrototype()->end()
@@ -205,6 +212,11 @@ final class GoAopBundle extends AbstractBundle
     {
         if ($this->container === null) {
             throw new LogicException('GoAopBundle can not boot without a container.');
+        }
+        // A command that builds the AOP cache boots the application, and with it the aspect kernel, before the build:
+        // the classes it loads first may be missing from a prebuilt cache, they are loaded unwoven instead of failing
+        if (BuildCommandDetector::isBuildProcess()) {
+            CachePathManager::markBuildProcess();
         }
         // Initializes the aspect kernel: everything loaded from now on goes through the weaver
         $this->container->get(AspectKernel::class);
