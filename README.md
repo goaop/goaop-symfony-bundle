@@ -219,19 +219,19 @@ If your `kernel.build_dir` differs from `kernel.cache_dir` (read-only build dire
 
 ### Opcache preloading
 
-Symfony's preload file loads the classes of your services through the autoloader, so without the aspect kernel it would preload the original classes, and a preloaded class can not be woven anymore. Boot the kernel in `config/preload.php` before requiring the container preload file: booting initializes the aspect kernel, and the woven classes are preloaded instead.
+Symfony's preload file loads the classes of your services through the autoloader, so on its own it would preload the original classes, and a preloaded class can not be woven anymore. In production mode the cache warmer of `cache:clear` and `cache:warmup` also writes the `opcache.preload` script of the AOP cache, `_preload.php` in the cache directory: it hands the woven class map to Composer, defines the constants the woven files use, and preloads every woven and untransformed class of the include paths. Require it in `config/preload.php` before the preload file of the container, which then preloads the woven classes of your services together with the classes of Symfony and `vendor/`:
 
 ```php
 // config/preload.php
-use App\Kernel;
-
-require dirname(__DIR__).'/vendor/autoload.php';
-
 if (file_exists(dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php')) {
-    (new Kernel('prod', false))->boot();
+    require dirname(__DIR__).'/var/cache/prod/aop/_preload.php';
     require dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php';
 }
 ```
+
+Adapt the path of `_preload.php` when `cache_dir` is not `%kernel.cache_dir%/aop`. The script locates everything relative to its own directory, so it stays valid when `cache:clear` renames the new cache directory, and it lists the classes of exactly the cache it was built with: it is rebuilt with the cache. `bin/console cache:warmup:aop --preload[=FILE]` writes it on demand.
+
+Do not boot the kernel in `config/preload.php`: booting creates services whose files the container preload file includes again, which fails with "Cannot redeclare class".
 
 ## Doctrine ORM
 
@@ -268,7 +268,7 @@ With `symfony/web-profiler-bundle` installed, the toolbar shows the number of as
 - **"GoAopBundle must be the first bundle in config/bundles.php"** — move its line above every other bundle (the internal component bundles of Symfony 8.1 are fine before it). Symfony Flex appends new bundles at the end, so this happens once right after `composer require`.
 - **An aspect does not apply.** Check `debug:advisor --advisor=...` first: it lists the joinpoints a pointcut matches. Then make sure the class lies below an include path and is not loaded before the bundle boots (profiler panel, *classes loaded before weaving*). Vendor code is only woven when its directory is an include path.
 - **"Class ... is missing from the prebuilt AOP cache"** — with `PREBUILT_CACHE` the cache must hold every class below the include paths: the deployment shipped code that the cache was not built for. Run `bin/console cache:clear` (or `cache:warmup`) as part of the deployment, after the code is in place.
-- **Everything works in dev but not in prod.** The production cache is built at deploy time: run `cache:clear` or `cache:warmup`, and keep `PREBUILT_CACHE` on only when the deployment rebuilds the cache. Check that nothing defines `.container.dumper.inline_class_loader: true`, and that `config/preload.php` boots the kernel before the container preload file when preloading is enabled.
+- **Everything works in dev but not in prod.** The production cache is built at deploy time: run `cache:clear` or `cache:warmup`, and keep `PREBUILT_CACHE` on only when the deployment rebuilds the cache. Check that nothing defines `.container.dumper.inline_class_loader: true`, and that `config/preload.php` requires the `_preload.php` of the AOP cache before the container preload file when preloading is enabled.
 - **"Circular reference detected for the aspect ..."** — an aspect is created by the container when one of its advices runs first, after its dependencies. An aspect can depend on a woven service, even on one it advises; but when creating one of its dependencies runs an advice of the same aspect (the aspect advises the constructor of a service it depends on, a method that this constructor calls, or code that another dependency runs while it is created), that advice would run on an aspect that does not exist yet. The message shows the path from the aspect to its advice. Inject the dependency lazily, so that the aspect can be created first:
   ```php
   public function __construct(

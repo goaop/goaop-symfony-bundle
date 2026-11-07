@@ -15,6 +15,7 @@ namespace Go\Symfony\GoAopBundle\CacheWarmer;
 use Go\Core\AspectKernel;
 use Go\Instrument\ClassLoading\CacheWarmer;
 use Go\Instrument\PathResolver;
+use Go\Symfony\GoAopBundle\Kernel\DebugClassLoaderGuard;
 use RuntimeException;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -27,6 +28,10 @@ use Symfony\Component\HttpKernel\CacheWarmer\CacheWarmerInterface;
  * temporary directory and renames it afterwards). The framework builds the cache in any directory
  * while the kernel of the process keeps running on its own, so the configured cache directory is
  * rebased on the directory Symfony asks to warm up.
+ *
+ * In production mode the opcache.preload script of the cache is written along with it (`_preload.php` in the
+ * cache directory, location independent like the rest of the cache), which config/preload.php requires before
+ * the preload file of the container.
  *
  * @phpstan-import-type UserKernelOptions from AspectKernel
  */
@@ -54,16 +59,24 @@ final class AspectCacheWarmer implements CacheWarmerInterface
 
     public function warmUp(string $cacheDir, ?string $buildDir = null): array
     {
-        $targetDir = $this->resolveTargetDir($cacheDir, $buildDir ?? $cacheDir);
-        // Verbose output lists one line per file instead of a progress bar, the errors are picked from it
-        $output    = new BufferedOutput(OutputInterface::VERBOSITY_VERBOSE);
+        $targetDir     = $this->resolveTargetDir($cacheDir, $buildDir ?? $cacheDir);
         $kernelOptions = $this->aspectKernel->getOptions();
+        // Verbose output lists one line per file instead of a progress bar, the errors are picked from it
+        $output = new BufferedOutput(OutputInterface::VERBOSITY_VERBOSE);
         // The directory of the running kernel is warmed up in place, any other one is built next to it
         $otherDir = self::isSameDirectory($targetDir, $kernelOptions['cacheDir']) ? null : $targetDir;
-        // Keeps as many parsed files in memory as the kernel, like cache:warmup:aop without --cached-files
-        $warmer   = new CacheWarmer($this->aspectKernel, $output, cachedFiles: $kernelOptions['parsedFilesLimit'], cacheDir: $otherDir);
+        $warmer   = new CacheWarmer(
+            $this->aspectKernel,
+            $output,
+            // As many parsed files in memory as the kernel keeps, like cache:warmup:aop without --cached-files
+            cachedFiles: $kernelOptions['parsedFilesLimit'],
+            cacheDir: $otherDir,
+            // In production also the opcache.preload script of the cache, _preload.php, for config/preload.php
+            preloadFile: $kernelOptions['debug'] ? null : '',
+        );
 
-        $errors = $warmer->warmUp();
+        // The preload script is written from the Composer autoloader, which the DebugClassLoader hides
+        $errors = DebugClassLoaderGuard::lifted($warmer->warmUp(...));
         if ($errors > 0) {
             $errorLines = self::errorLines($output->fetch());
 

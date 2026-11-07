@@ -85,8 +85,9 @@ Cache and deployment
   no longer weaves the whole application.
 - `cache:clear` builds the new AOP cache next to the running one, in the new cache directory, without touching
   the directory the running kernel uses.
-- With opcache preloading, boot the kernel in `config/preload.php` before the container preload file, so that
-  the woven classes are preloaded (see the README).
+- With opcache preloading, require the `_preload.php` of the AOP cache (written by the cache warmer in production
+  mode) in `config/preload.php` before the container preload file, so that the woven classes are preloaded (see
+  the README).
 - For production, enable `features: [PREBUILT_CACHE]` and build the cache on deployment.
 
 Console

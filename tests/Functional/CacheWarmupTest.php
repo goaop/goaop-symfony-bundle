@@ -14,6 +14,7 @@ use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Service\Recorder;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Process\Process;
 
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]
@@ -55,6 +56,35 @@ class CacheWarmupTest extends FunctionalTestCase
         $this->assertInstanceOf(Recorder::class, $recorder);
         $this->assertSame('Hello, prod!', $greeting->greet('prod'));
         $this->assertSame(['before:greet', 'after:greet'], $recorder->events);
+    }
+
+    public function testProductionCacheComesWithItsPreloadScript(): void
+    {
+        self::runConsole(['cache:clear'], 'prod');
+        $preloadScript = self::cacheRootDir() . '/prod/aop/_preload.php';
+        $this->assertFileExists($preloadScript);
+        if (!extension_loaded('Zend OPcache')) {
+            $this->markTestSkipped('The opcache extension is not loaded');
+        }
+
+        // A process started with the script preloads the woven classes, which are declared before any code runs
+        $preloadSettings = ['-d', 'opcache.enable_cli=1', '-d', 'opcache.preload=' . $preloadScript];
+        if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+            $preloadSettings = [...$preloadSettings, '-d', 'opcache.preload_user=root'];
+        }
+        $process = new Process(
+            [PHP_BINARY, ...$preloadSettings, '-r', 'echo json_encode(class_exists($argv[1], false) && is_subclass_of($argv[1], $argv[2]));', GreetingService::class, Proxy::class],
+        );
+        $process->mustRun();
+        $this->assertSame('true', $process->getOutput(), $process->getErrorOutput());
+    }
+
+    public function testDebugCacheHasNoPreloadScript(): void
+    {
+        self::runConsole(['cache:warmup']);
+
+        $this->assertFileExists(self::cacheRootDir() . '/test/aop/src/Service/GreetingService.php');
+        $this->assertFileDoesNotExist(self::cacheRootDir() . '/test/aop/_preload.php');
     }
 
     public function testCacheClearRebuildsAPrebuiltCacheThatMissesClasses(): void
