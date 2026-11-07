@@ -31,6 +31,7 @@ use Symfony\Component\HttpKernel\Kernel as BaseKernel;
  *  - "generated": debug mode, the Admin directory is woven too; its class extends a class generated into the cache
  *    directory that Composer can not locate (see BaseClassGenerator)
  *  - "generated_excluded": the "generated" environment with the Admin directory in exclude_paths
+ *  - "generated_partial": the "generated" environment with the PARTIAL_REFLECTION feature
  *  - "cycle": debug mode with the aspects of src/Cycle, which depend on the services they advise
  *
  * The cache directory is taken from the APP_CACHE_DIR environment variable so that every test
@@ -136,6 +137,9 @@ final class Kernel extends BaseKernel
         }
         if ($this->environment === 'generated_excluded') {
             $goAop['exclude_paths'] = ['%kernel.project_dir%/Admin'];
+        }
+        if ($this->environment === 'generated_partial') {
+            $goAop['features'] = ['PARTIAL_REFLECTION'];
         }
         $container->extension('go_aop', $goAop);
 

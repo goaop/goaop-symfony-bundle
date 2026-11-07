@@ -159,6 +159,8 @@ go_aop:
     # Framework features, by the name of the Go\Aop\Features constant:
     #   PREBUILT_CACHE     trust the deployed cache completely, never check or write it at runtime
     #   INTERCEPT_INCLUDES route include/require in woven files through the weaver (legacy code)
+    #   PARTIAL_REFLECTION weave classes whose parent class, interface or trait Composer can not
+    #                      locate, with their own members (see "Classes extending generated code")
     features: []
 
     # Aspect kernel class; extend Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel to customize
@@ -281,14 +283,15 @@ The weaver reads a class from its source file without loading it, and it reads t
 - declared by `class_alias()` in a file that Composer maps to the alias name;
 - defined in a file Composer does not know about (included by hand, or loaded from a PHAR by another autoloader).
 
-It fails as soon as the class part of a pointcut matches the class (`App\Admin\*`, `App\**`, ...), even when in the end no advice applies to any of its methods: the weaver reflects every method of the class, inherited ones included. Classes that no pointcut can match are loaded as they are. The class loader throws when it weaves such a class, in debug and in production mode, and the warm-up of `cache:warmup` and `cache:clear` fails with the same message for each file and a hint:
+It fails as soon as the class part of a pointcut matches the class (`App\Admin\*`, `App\**`, ...), even when in the end no advice applies to any of its methods: the weaver reflects every method of the class, inherited ones included. Classes that no pointcut can match are loaded as they are. Unless the `PARTIAL_REFLECTION` feature is enabled (option 2 below), the class loader throws when it weaves such a class, in debug and in production mode, and the warm-up of `cache:warmup` and `cache:clear` fails with the same message for each file and a hint:
 
 ```
 Go\Aop\Exception\WeavingException: Go\Instrument\Transformer\WeavingTransformer failed to transform
 /app/src/Admin/ReportController.php: Class Acme\Generated\BaseReportController was not found by locator. The weaver
 reads the parents, interfaces and traits of a class from their source files, which it finds through Composer: make
 Acme\Generated\BaseReportController loadable by Composer (...), or exclude the classes that depend on it from weaving
-with the excludePaths option.
+with the excludePaths option. With the Features::PARTIAL_REFLECTION flag, a class whose parent class, interface or
+trait can not be located is woven with its own members.
 ```
 
 For a `class_alias()` file the message ends with `Class Acme\OldName was not found in the /path/to/alias.php` instead. The failure depends on what the process loaded before: the request (or command) that compiles the container loads the service classes and their ancestors first, so it often works there and fails on the next request, or only in a `cache:warmup` that finds the container already built.
@@ -307,12 +310,18 @@ To fix it, from the best option to the least intrusive one:
    }
    ```
    The generated files must exist when the class is woven: generate them before the cache warm-up.
-2. **Exclude the classes that depend on it** from weaving. They are loaded as they are, without aspects:
+2. **Weave the class with what can be located**, with the `PARTIAL_REFLECTION` feature:
+   ```yaml
+   go_aop:
+       features: [PARTIAL_REFLECTION]
+   ```
+   A class whose parent class, interface or trait can not be located is woven with its own methods and properties and the ones of the ancestors that can be; the members it inherits from a missing ancestor are not intercepted. The woven class still extends the missing parent class (and implements the missing interfaces), so they must be loadable when the class is loaded.
+3. **Exclude the classes that depend on it** from weaving. They are loaded as they are, without aspects:
    ```yaml
    go_aop:
        exclude_paths: ['%kernel.project_dir%/src/Admin']
    ```
-3. **Keep `include_paths` narrow**: list the directories your aspects are meant for (`src/Service`, `src/Domain`, ...) rather than `src` or the whole project. Only the AOP cache directory and the framework with its runtime dependencies are excluded automatically: an include path that covers the rest of `%kernel.cache_dir%` or `vendor/` weaves the code there too, generated code included.
+4. **Keep `include_paths` narrow**: list the directories your aspects are meant for (`src/Service`, `src/Domain`, ...) rather than `src` or the whole project. Only the AOP cache directory and the framework with its runtime dependencies are excluded automatically: an include path that covers the rest of `%kernel.cache_dir%` or `vendor/` weaves the code there too, generated code included.
 
 ## Upgrading from 2.x
 

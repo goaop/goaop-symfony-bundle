@@ -32,6 +32,7 @@ composer analyse            # phpstan, level max (src/ only)
 | `signatures` | debug | the woven classes of `src/Signature` and their aspect, for the DebugClassLoader checks (#23) |
 | `generated` | debug | also weaves `Admin/`, whose class extends a class generated into the cache directory that Composer can not locate (`BaseClassGenerator`, #17) |
 | `generated_excluded` | debug | `generated` with `Admin/` in `exclude_paths` |
+| `generated_partial` | debug | `generated` with the `PARTIAL_REFLECTION` feature: the class is woven with its own members |
 | `cycle` | debug | the aspects of `src/Cycle`, which depend on the services they advise, for the circular reference checks (#15) |
 
 Adding an environment:

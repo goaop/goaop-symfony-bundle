@@ -82,6 +82,6 @@ class KernelOptionsResolverTest extends TestCase
 
     public function testFeatureNamesComeFromTheFrameworkConstants(): void
     {
-        $this->assertSame(['INTERCEPT_INCLUDES', 'PREBUILT_CACHE'], KernelOptionsResolver::featureNames());
+        $this->assertSame(['INTERCEPT_INCLUDES', 'PREBUILT_CACHE', 'PARTIAL_REFLECTION'], KernelOptionsResolver::featureNames());
     }
 }

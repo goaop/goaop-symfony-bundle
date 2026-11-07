@@ -129,9 +129,9 @@ final class AspectCacheWarmer implements CacheWarmerInterface
     }
 
     /**
-     * Names the bundle option for the most common failure: the weaver reads the ancestors of a class from their
+     * Names the bundle options for the most common failure: the weaver reads the ancestors of a class from their
      * source files, which it finds through Composer, unless they are already declared. The framework explains the
-     * failure in the error of the file, with the name of its kernel option.
+     * failure in the error of the file, with the names of its kernel option and feature flag.
      */
     private static function hint(string $errorLines): string
     {
@@ -139,6 +139,12 @@ final class AspectCacheWarmer implements CacheWarmerInterface
             return '';
         }
 
-        return "\n\nIn the bundle configuration, the excludePaths option is go_aop.exclude_paths.";
+        $hint = "\n\nIn the bundle configuration, the excludePaths option is go_aop.exclude_paths";
+        // The framework names the flag for the ancestors Composer can not locate, which the flag solves
+        if (str_contains($errorLines, 'PARTIAL_REFLECTION')) {
+            $hint .= ' and the Features::PARTIAL_REFLECTION flag is go_aop.features: [PARTIAL_REFLECTION]';
+        }
+
+        return $hint . '.';
     }
 }

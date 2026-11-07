@@ -38,7 +38,7 @@ go_aop:
     cache_dir: '%kernel.cache_dir%/aop'
     include_paths: ['%kernel.project_dir%/src']
     exclude_paths: []
-    features: []            # names of Go\Aop\Features constants: PREBUILT_CACHE, INTERCEPT_INCLUDES
+    features: []            # names of Go\Aop\Features constants: PREBUILT_CACHE, INTERCEPT_INCLUDES, PARTIAL_REFLECTION
     cache_warmer: true
     doctrine: ~             # enabled automatically with DoctrineBundle
 ```

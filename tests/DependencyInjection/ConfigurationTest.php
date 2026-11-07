@@ -36,9 +36,9 @@ class ConfigurationTest extends TestCase
 
     public function testFeaturesAreNormalizedToConstantNames(): void
     {
-        $config = $this->process(['features' => ['prebuilt_cache', 'PREBUILT_CACHE', 'Intercept_Includes']]);
+        $config = $this->process(['features' => ['prebuilt_cache', 'PREBUILT_CACHE', 'Intercept_Includes', 'partial_reflection']]);
 
-        $this->assertSame(['PREBUILT_CACHE', 'INTERCEPT_INCLUDES'], $config['features']);
+        $this->assertSame(['PREBUILT_CACHE', 'INTERCEPT_INCLUDES', 'PARTIAL_REFLECTION'], $config['features']);
     }
 
     public function testSingleFeatureCanBeGivenAsString(): void
@@ -49,7 +49,7 @@ class ConfigurationTest extends TestCase
     public function testUnknownFeatureIsRejected(): void
     {
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Unknown Go! AOP feature "INTERCEPT_FUNCTIONS", known features are: INTERCEPT_INCLUDES, PREBUILT_CACHE.');
+        $this->expectExceptionMessage('Unknown Go! AOP feature "INTERCEPT_FUNCTIONS", known features are: INTERCEPT_INCLUDES, PREBUILT_CACHE, PARTIAL_REFLECTION.');
 
         $this->process(['features' => ['INTERCEPT_FUNCTIONS']]);
     }
