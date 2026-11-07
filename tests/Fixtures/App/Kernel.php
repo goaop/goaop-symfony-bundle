@@ -22,7 +22,8 @@ use Symfony\Component\HttpKernel\Kernel as BaseKernel;
  *
  * Environments:
  *  - "test": debug mode, weaving on demand
- *  - "prod": production mode with a prebuilt cache (the cache must be warmed up before booting)
+ *  - "prod": production mode with a prebuilt cache (the cache must be warmed up before booting) and a parsed files
+ *    limit of its own
  *  - "doctrine": debug mode with DoctrineBundle and an attribute-mapped entity
  *  - "profiler": debug mode with the web profiler and a /greet route
  *  - "misplaced": GoAopBundle registered after FrameworkBundle, to test the ordering check
@@ -127,6 +128,8 @@ final class Kernel extends BaseKernel
         ];
         if ($this->environment === 'prod') {
             $goAop['features'] = ['PREBUILT_CACHE'];
+            // Other than the default, to check that it reaches the kernel and the cache warmer
+            $goAop['parsed_files_limit'] = 50;
         }
         if (str_starts_with($this->environment, 'generated')) {
             $goAop['include_paths'][] = '%kernel.project_dir%/Admin';

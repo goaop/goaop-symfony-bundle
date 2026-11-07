@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Go\Symfony\GoAopBundle\Tests\DependencyInjection;
 
+use Go\Core\AspectKernel;
 use Go\Symfony\GoAopBundle\GoAopBundle;
 use Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -19,16 +20,17 @@ class ConfigurationTest extends TestCase
         $config = $this->process([]);
 
         $this->assertSame([
-            'debug'           => '%kernel.debug%',
-            'app_dir'         => '%kernel.project_dir%',
-            'cache_dir'       => '%kernel.cache_dir%/aop',
-            'cache_file_mode' => null,
-            'include_paths'   => ['%kernel.project_dir%/src'],
-            'exclude_paths'   => [],
-            'features'        => [],
-            'kernel_class'    => AspectSymfonyKernel::class,
-            'cache_warmer'    => true,
-            'doctrine'        => null,
+            'debug'              => '%kernel.debug%',
+            'app_dir'            => '%kernel.project_dir%',
+            'cache_dir'          => '%kernel.cache_dir%/aop',
+            'cache_file_mode'    => null,
+            'include_paths'      => ['%kernel.project_dir%/src'],
+            'exclude_paths'      => [],
+            'parsed_files_limit' => AspectKernel::DEFAULT_PARSED_FILES_LIMIT,
+            'features'           => [],
+            'kernel_class'       => AspectSymfonyKernel::class,
+            'cache_warmer'       => true,
+            'doctrine'           => null,
         ], $config);
     }
 
@@ -84,6 +86,16 @@ class ConfigurationTest extends TestCase
         $this->expectExceptionMessage('The cache file mode "0444" is not a valid octal file mode between 0600 and 0777.');
 
         $this->process(['cache_file_mode' => '0444']);
+    }
+
+    public function testParsedFilesLimitMustBePositive(): void
+    {
+        $this->assertSame(500, $this->process(['parsed_files_limit' => 500])['parsed_files_limit']);
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('The value 0 is too small for path "go_aop.parsed_files_limit". Should be greater than or equal to 1');
+
+        $this->process(['parsed_files_limit' => 0]);
     }
 
     public function testKernelClassMustExtendTheBundleKernel(): void

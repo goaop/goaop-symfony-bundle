@@ -151,6 +151,11 @@ go_aop:
     # framework itself are always excluded).
     exclude_paths: []
 
+    # Number of parsed source files the weaver keeps in memory (about 0.2 MB each): more re-parses
+    # less, fewer uses less memory. The cache warmer uses it too, as does cache:warmup:aop
+    # unless --cached-files is given.
+    parsed_files_limit: 100
+
     # Framework features, by the name of the Go\Aop\Features constant:
     #   PREBUILT_CACHE     trust the deployed cache completely, never check or write it at runtime
     #   INTERCEPT_INCLUDES route include/require in woven files through the weaver (legacy code)

@@ -57,9 +57,11 @@ final class AspectCacheWarmer implements CacheWarmerInterface
         $targetDir = $this->resolveTargetDir($cacheDir, $buildDir ?? $cacheDir);
         // Verbose output lists one line per file instead of a progress bar, the errors are picked from it
         $output    = new BufferedOutput(OutputInterface::VERBOSITY_VERBOSE);
+        $kernelOptions = $this->aspectKernel->getOptions();
         // The directory of the running kernel is warmed up in place, any other one is built next to it
-        $otherDir = self::isSameDirectory($targetDir, $this->aspectKernel->getOptions()['cacheDir']) ? null : $targetDir;
-        $warmer   = new CacheWarmer($this->aspectKernel, $output, cacheDir: $otherDir);
+        $otherDir = self::isSameDirectory($targetDir, $kernelOptions['cacheDir']) ? null : $targetDir;
+        // Keeps as many parsed files in memory as the kernel, like cache:warmup:aop without --cached-files
+        $warmer   = new CacheWarmer($this->aspectKernel, $output, cachedFiles: $kernelOptions['parsedFilesLimit'], cacheDir: $otherDir);
 
         $errors = $warmer->warmUp();
         if ($errors > 0) {

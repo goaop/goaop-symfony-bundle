@@ -25,7 +25,7 @@ composer analyse            # phpstan, level max (src/ only)
 | Environment | Mode | Purpose |
 |---|---|---|
 | `test` | debug | weaving on demand, the default |
-| `prod` | production, `PREBUILT_CACHE` | the cache must be warmed up before booting |
+| `prod` | production, `PREBUILT_CACHE` | the cache must be warmed up before booting; `parsed_files_limit: 50`, to check that the option reaches the kernel and the cache warmer |
 | `doctrine` | debug | DoctrineBundle with an attribute-mapped entity |
 | `profiler` | debug | the web profiler and a `/greet` route |
 | `misplaced` | — | GoAopBundle registered after FrameworkBundle, for the ordering check |

@@ -7,6 +7,8 @@ namespace Go\Symfony\GoAopBundle\Tests\Functional;
 use Go\Aop\Features;
 use Go\Aop\Proxy;
 use Go\Core\AspectKernel;
+use Go\ParserReflection\ReflectionEngine;
+use Go\Symfony\GoAopBundle\CacheWarmer\AspectCacheWarmer;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Service\GreetingService;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Service\Recorder;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
@@ -52,5 +54,27 @@ class CacheWarmupTest extends FunctionalTestCase
         $this->assertInstanceOf(Recorder::class, $recorder);
         $this->assertSame('Hello, prod!', $greeting->greet('prod'));
         $this->assertSame(['before:greet', 'after:greet'], $recorder->events);
+    }
+
+    public function testCacheWarmerKeepsAsManyParsedFilesAsTheKernel(): void
+    {
+        $this->bootKernel('prod');
+        $aspectKernel = AspectKernel::getInstance();
+        $this->assertSame(50, $aspectKernel->getOptions()['parsedFilesLimit']);
+        $this->assertSame(50, self::maximumCachedFiles(), 'The kernel applies the option');
+
+        // The warm-up sets the limit of its own weaving process, from the option of the kernel
+        ReflectionEngine::setMaximumCachedFiles(7);
+        $directory = self::cacheRootDir() . '/next';
+        mkdir($directory, 0o777, true);
+        new AspectCacheWarmer($aspectKernel, $aspectKernel->getOptions(), ['anchor' => 'cache', 'suffix' => '/aop'])->warmUp($directory);
+
+        $this->assertFileExists($directory . '/aop/src/Service/GreetingService.php');
+        $this->assertSame(50, self::maximumCachedFiles());
+    }
+
+    private static function maximumCachedFiles(): mixed
+    {
+        return new \ReflectionProperty(ReflectionEngine::class, 'maximumCachedFiles')->getValue();
     }
 }
