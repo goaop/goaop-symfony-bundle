@@ -205,13 +205,15 @@ The warm-up fails when a file cannot be woven, so a deployment stops instead of 
 
 ### Trust the cache in production
 
-With `features: [PREBUILT_CACHE]` the runtime skips every cache-related file system check (directory probes, `filemtime` comparisons, aspect freshness) and never writes to the cache directory. Rebuild the cache on every deployment. This is the recommended production setting, and it is what makes read-only file systems and immutable images work:
+With `features: [PREBUILT_CACHE]` the runtime skips every cache-related file system check (directory probes, `filemtime` comparisons, aspect freshness) and never weaves nor writes to the cache directory: a class below the include paths that the cache does not know fails with a `WeavingException` ("... is missing from the prebuilt AOP cache ..."). Rebuild the cache on every deployment. This is the recommended production setting, and it is what makes read-only file systems and immutable images work:
 
 ```yaml
 when@prod:
     go_aop:
         features: [PREBUILT_CACHE]
 ```
+
+The commands that build the cache (`cache:clear`, `cache:warmup`, `cache:warmup:aop`, `debug:weaving`) boot the application first, and `cache:clear` compiles the new container before the cache is woven: in their process a class the cache misses is loaded as it is instead of failing, and woven by the warm-up.
 
 If your `kernel.build_dir` differs from `kernel.cache_dir` (read-only build directory, writable cache directory), anchor the AOP cache on the directory you build at deploy time: `cache_dir: '%kernel.build_dir%/aop'`.
 
@@ -265,6 +267,7 @@ With `symfony/web-profiler-bundle` installed, the toolbar shows the number of as
 
 - **"GoAopBundle must be the first bundle in config/bundles.php"** — move its line above every other bundle (the internal component bundles of Symfony 8.1 are fine before it). Symfony Flex appends new bundles at the end, so this happens once right after `composer require`.
 - **An aspect does not apply.** Check `debug:advisor --advisor=...` first: it lists the joinpoints a pointcut matches. Then make sure the class lies below an include path and is not loaded before the bundle boots (profiler panel, *classes loaded before weaving*). Vendor code is only woven when its directory is an include path.
+- **"Class ... is missing from the prebuilt AOP cache"** — with `PREBUILT_CACHE` the cache must hold every class below the include paths: the deployment shipped code that the cache was not built for. Run `bin/console cache:clear` (or `cache:warmup`) as part of the deployment, after the code is in place.
 - **Everything works in dev but not in prod.** The production cache is built at deploy time: run `cache:clear` or `cache:warmup`, and keep `PREBUILT_CACHE` on only when the deployment rebuilds the cache. Check that nothing defines `.container.dumper.inline_class_loader: true`, and that `config/preload.php` boots the kernel before the container preload file when preloading is enabled.
 - **"Circular reference detected for the aspect ..."** — an aspect is created by the container when one of its advices runs first, after its dependencies. An aspect can depend on a woven service, even on one it advises; but when creating one of its dependencies runs an advice of the same aspect (the aspect advises the constructor of a service it depends on, a method that this constructor calls, or code that another dependency runs while it is created), that advice would run on an aspect that does not exist yet. The message shows the path from the aspect to its advice. Inject the dependency lazily, so that the aspect can be created first:
   ```php

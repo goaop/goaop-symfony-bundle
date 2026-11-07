@@ -13,6 +13,7 @@ use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Service\GreetingService;
 use Go\Symfony\GoAopBundle\Tests\Fixtures\App\Service\Recorder;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use Symfony\Component\Filesystem\Filesystem;
 
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]
@@ -54,6 +55,26 @@ class CacheWarmupTest extends FunctionalTestCase
         $this->assertInstanceOf(Recorder::class, $recorder);
         $this->assertSame('Hello, prod!', $greeting->greet('prod'));
         $this->assertSame(['before:greet', 'after:greet'], $recorder->events);
+    }
+
+    public function testCacheClearRebuildsAPrebuiltCacheThatMissesClasses(): void
+    {
+        self::runConsole(['cache:clear'], 'prod');
+        // The deployed cache misses classes of the release (here all of them), the container is kept
+        new Filesystem()->remove(self::cacheRootDir() . '/prod/aop');
+        // Older than the next process: cache:clear compiles a new container, which loads the service classes before
+        // the AOP cache warmer runs, in a process whose aspect kernel serves the incomplete cache (#808)
+        foreach (glob(self::cacheRootDir() . '/prod/Container*/*.php') ?: [] as $file) {
+            touch($file, time() - 60);
+        }
+
+        $process = self::runConsole(['cache:clear', '-v'], 'prod');
+        $this->assertStringContainsString('Warming up cache', $process->getOutput(), 'A new container is compiled');
+        $this->assertStringContainsString('successfully cleared', $process->getOutput());
+        $this->assertFileExists(self::cacheRootDir() . '/prod/aop/src/Service/GreetingService.php');
+
+        $greeting = $this->bootKernel('prod')->getContainer()->get(GreetingService::class);
+        $this->assertInstanceOf(Proxy::class, $greeting, 'The woven class is served from the rebuilt cache');
     }
 
     public function testCacheWarmerKeepsAsManyParsedFilesAsTheKernel(): void

@@ -15,7 +15,9 @@ namespace Go\Symfony\GoAopBundle;
 use Go\Aop\Aspect;
 use Go\Bridge\Doctrine\MetadataLoadInterceptor;
 use Go\Core\AspectKernel;
+use Go\Instrument\ClassLoading\CachePathManager;
 use Go\Symfony\GoAopBundle\CacheWarmer\AspectCacheWarmer;
+use Go\Symfony\GoAopBundle\Console\BuildCommandDetector;
 use Go\Symfony\GoAopBundle\DataCollector\AspectDataCollector;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\AspectCollectorPass;
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\ClassSignatureResourcePass;
@@ -210,6 +212,11 @@ final class GoAopBundle extends AbstractBundle
     {
         if ($this->container === null) {
             throw new LogicException('GoAopBundle can not boot without a container.');
+        }
+        // A command that builds the AOP cache boots the application, and with it the aspect kernel, before the build:
+        // the classes it loads first may be missing from a prebuilt cache, they are loaded unwoven instead of failing
+        if (BuildCommandDetector::isBuildProcess()) {
+            CachePathManager::markBuildProcess();
         }
         // Initializes the aspect kernel: everything loaded from now on goes through the weaver
         $this->container->get(AspectKernel::class);
