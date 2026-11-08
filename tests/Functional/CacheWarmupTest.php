@@ -79,6 +79,46 @@ class CacheWarmupTest extends FunctionalTestCase
         $this->assertSame('true', $process->getOutput(), $process->getErrorOutput());
     }
 
+    /**
+     * cache:clear over an existing cache boots the current kernel, and with it the aspect kernel, before it dumps the
+     * new container in the same process: the dumper writes the preload file of the container only when it finds
+     * Composer's class loader, which the aspect kernel replaces (#46)
+     */
+    public function testCacheClearOverAnExistingCacheKeepsThePreloadFileOfTheContainer(): void
+    {
+        self::runConsole(['cache:clear'], 'prod');
+        // Older than the next process: cache:clear takes a container written since its own start for one it has just
+        // built, and keeps it instead of dumping a new one
+        foreach (glob(self::cacheRootDir() . '/prod/Container*/*.php') ?: [] as $file) {
+            touch($file, time() - 60);
+        }
+        $process = self::runConsole(['cache:clear', '-v'], 'prod');
+        $this->assertStringContainsString('Warming up cache', $process->getOutput(), 'A new container is dumped');
+
+        $cacheDir         = self::cacheRootDir() . '/prod';
+        $containerPreload = glob($cacheDir . '/*Container.preload.php') ?: [];
+        $this->assertCount(1, $containerPreload, 'The second cache:clear writes the preload file of the container');
+        $this->assertFileExists($cacheDir . '/aop/_preload.php');
+        if (!extension_loaded('Zend OPcache')) {
+            $this->markTestSkipped('The opcache extension is not loaded');
+        }
+
+        // Both scripts preload together, the one of the AOP cache first (README); the preload file of the container
+        // skips the CLI, so they are preloaded by the built-in web server
+        $webDir = self::cacheRootDir() . '/preload-web';
+        mkdir($webDir);
+        file_put_contents($webDir . '/preload.php', sprintf(
+            "<?php\nrequire %s;\nrequire %s;\n",
+            var_export($cacheDir . '/aop/_preload.php', true),
+            var_export($containerPreload[0], true),
+        ));
+        file_put_contents($webDir . '/index.php', '<?php echo json_encode(opcache_get_status()["preload_statistics"]["classes"] ?? null);');
+        $classes = $this->preloadedClasses($webDir);
+
+        $this->assertContains(GreetingService::class, $classes, 'The woven class of the AOP cache');
+        $this->assertNotSame([], array_filter($classes, static fn (string $class): bool => str_ends_with($class, 'KernelProdContainer')), 'The container');
+    }
+
     public function testDebugCacheHasNoPreloadScript(): void
     {
         self::runConsole(['cache:warmup']);
@@ -127,5 +167,36 @@ class CacheWarmupTest extends FunctionalTestCase
     private static function maximumCachedFiles(): mixed
     {
         return new \ReflectionProperty(ReflectionEngine::class, 'maximumCachedFiles')->getValue();
+    }
+
+    /**
+     * Returns the classes the built-in web server preloads with the preload.php of the directory it serves
+     *
+     * @return list<string>
+     */
+    private function preloadedClasses(string $webDir): array
+    {
+        $settings = ['-d', 'opcache.enable=1', '-d', 'opcache.preload=' . $webDir . '/preload.php'];
+        if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+            $settings = [...$settings, '-d', 'opcache.preload_user=root'];
+        }
+        $port   = random_int(20000, 60000);
+        $server = new Process([PHP_BINARY, ...$settings, '-S', '127.0.0.1:' . $port, '-t', $webDir]);
+        $server->start();
+        try {
+            $response = false;
+            for ($attempt = 0; $attempt < 50 && $response === false && $server->isRunning(); $attempt++) {
+                usleep(100_000);
+                $response = @file_get_contents('http://127.0.0.1:' . $port . '/index.php');
+            }
+            $this->assertIsString($response, $server->getOutput() . $server->getErrorOutput());
+            $classes = json_decode($response, true, flags: JSON_THROW_ON_ERROR);
+            $this->assertIsArray($classes, 'The server preloads: ' . $response);
+            $this->assertStringNotContainsString('Warning', $server->getErrorOutput());
+
+            return array_values(array_filter($classes, is_string(...)));
+        } finally {
+            $server->stop();
+        }
     }
 }
