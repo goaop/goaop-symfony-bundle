@@ -24,6 +24,7 @@ use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\ClassSignatureResourcePa
 use Go\Symfony\GoAopBundle\DependencyInjection\Compiler\DoctrineIntegrationPass;
 use Go\Symfony\GoAopBundle\DependencyInjection\KernelOptionsResolver;
 use Go\Symfony\GoAopBundle\Kernel\AspectSymfonyKernel;
+use Go\Symfony\GoAopBundle\Kernel\ComposerLoaderExposer;
 use LogicException;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
@@ -215,11 +216,17 @@ final class GoAopBundle extends AbstractBundle
         }
         // A command that builds the AOP cache boots the application, and with it the aspect kernel, before the build:
         // the classes it loads first may be missing from a prebuilt cache, they are loaded unwoven instead of failing
-        if (BuildCommandDetector::isBuildProcess()) {
+        $isBuildProcess = BuildCommandDetector::isBuildProcess();
+        if ($isBuildProcess) {
             CachePathManager::markBuildProcess();
         }
         // Initializes the aspect kernel: everything loaded from now on goes through the weaver
         $this->container->get(AspectKernel::class);
+        // "cache:clear" dumps the new container in this process: the dumper writes its preload file only when it finds
+        // Composer's loader, which the aspect kernel has just replaced (#46)
+        if ($isBuildProcess) {
+            ComposerLoaderExposer::exposeBehindAopLoaders();
+        }
     }
 
     /**

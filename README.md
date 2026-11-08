@@ -215,13 +215,15 @@ Symfony's preload file loads the classes of your services through the autoloader
 
 ```php
 // config/preload.php
-if (file_exists(dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php')) {
-    require dirname(__DIR__).'/var/cache/prod/aop/_preload.php';
-    require dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php';
+if (is_file($aop = dirname(__DIR__).'/var/cache/prod/aop/_preload.php')) {
+    require $aop;
+}
+if (is_file($container = dirname(__DIR__).'/var/cache/prod/App_KernelProdContainer.preload.php')) {
+    require $container;
 }
 ```
 
-Adapt the path of `_preload.php` when `cache_dir` is not `%kernel.cache_dir%/aop`. The script locates everything relative to its own directory, so it stays valid when `cache:clear` renames the new cache directory, and it lists the classes of exactly the cache it was built with: it is rebuilt with the cache. `bin/console cache:warmup:aop --preload[=FILE]` writes it on demand.
+Each script is required on its own, so a missing file only switches off its own part of the preloading. Adapt the path of `_preload.php` when `cache_dir` is not `%kernel.cache_dir%/aop`. The script locates everything relative to its own directory, so it stays valid when `cache:clear` renames the new cache directory, and it lists the classes of exactly the cache it was built with: it is rebuilt with the cache. `bin/console cache:warmup:aop --preload[=FILE]` writes it on demand.
 
 Do not boot the kernel in `config/preload.php`: booting creates services whose files the container preload file includes again, which fails with "Cannot redeclare class".
 
