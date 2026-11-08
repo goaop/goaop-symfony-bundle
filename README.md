@@ -68,9 +68,28 @@ Some logic belongs to no single class and still ends up in hundreds of them: log
 composer require goaop/goaop-symfony-bundle
 ```
 
-Register the bundle as the **first** entry of `config/bundles.php`. Weaving only applies to classes loaded after the aspect kernel is initialized, and bundles boot in registration order, so this is enforced: the container build fails with a clear message otherwise.
+### With Symfony Flex
 
-> **Symfony Flex** registers new bundles at the *end* of `config/bundles.php`, so the `cache:clear` that runs at the end of `composer require` fails with "GoAopBundle must be the first bundle". Move the line to the top as shown below and run `bin/console cache:clear` again; this is needed once.
+The bundle has a [community recipe](https://github.com/symfony/recipes-contrib/tree/main/goaop/goaop-symfony-bundle) that does the whole setup: it registers the bundle as the **first** entry of `config/bundles.php`, creates `config/packages/go_aop.yaml` with the defaults shown below and prints the next steps. `composer remove goaop/goaop-symfony-bundle` reverts both.
+
+Community recipes run only when the project opts in. Interactively, Flex asks whether to execute the recipe; in non-interactive mode (`--no-interaction`, CI) it prints `IGNORING goaop/goaop-symfony-bundle` and installs the package *without registering the bundle*: the application keeps working and nothing is woven. Opt in once per project, before or after the first install:
+
+```bash
+composer config extra.symfony.allow-contrib true
+composer require goaop/goaop-symfony-bundle
+# recipe skipped at install time? apply it afterwards:
+composer recipes:install goaop/goaop-symfony-bundle --force
+```
+
+What the recipe does, and why:
+
+- **Registration at the top of `config/bundles.php`.** Weaving only applies to classes loaded after the aspect kernel is initialized in `GoAopBundle::boot()`, and bundles boot in registration order. The standard `bundles` configurator of Flex always appends, so the recipe patches the file right after its `return [` line instead. The bundle enforces the position: the container build fails with a clear message otherwise.
+- **The line is inserted, not merged.** If your `config/bundles.php` has another shape (no `return [` line of its own, bundles registered in `Kernel::registerBundles()`), Flex prints a warning with the missing line; add it yourself as shown below.
+- **The configuration file is a copy.** It is yours to edit, and `composer recipes:update` shows the diff when the recipe changes.
+
+### Without Flex
+
+Register the bundle as the **first** entry of `config/bundles.php` (or yield it first in `Kernel::registerBundles()`). The internal component bundles of Symfony 8.1+ may stay before it.
 
 ```php
 // config/bundles.php
@@ -91,6 +110,12 @@ when@prod:
     go_aop:
         features: [PREBUILT_CACHE]
 ```
+
+### Good to know
+
+- **The bundle must stay first.** When another recipe or a manual edit moves it, `cache:clear` fails with "GoAopBundle must be the first bundle in config/bundles.php"; move the line back to the top.
+- **The container is built before the bundle boots.** The process that compiles the container loads the service classes for reflection, so a `cache:clear` that compiles the container does not weave the classes it loaded; the next process does. The web profiler panel lists the *classes loaded before weaving* of a request.
+- **`cache:clear` of a `prod` deployment builds the AOP cache** next to the Symfony cache (`%kernel.cache_dir%/aop` by default), including the `cache:clear` that `composer install` runs at the end of a deployment: with `PREBUILT_CACHE` that cache is what production serves, see [Deployment](#deployment).
 
 ## Quick start
 
@@ -259,7 +284,8 @@ With `symfony/web-profiler-bundle` installed, the toolbar shows the number of as
 
 ## Troubleshooting
 
-- **"GoAopBundle must be the first bundle in config/bundles.php"** — move its line above every other bundle (the internal component bundles of Symfony 8.1 are fine before it). Symfony Flex appends new bundles at the end, so this happens once right after `composer require`.
+- **"GoAopBundle must be the first bundle in config/bundles.php"** — move its line above every other bundle (the internal component bundles of Symfony 8.1 are fine before it). The Flex recipe registers the bundle first; the message shows up when the bundle was registered by hand at the end of the file, or when another change moved it.
+- **The bundle is installed but nothing is woven.** Check that `config/bundles.php` registers `GoAopBundle` at all: Flex installs the package without running its community recipe when the project does not allow contrib recipes (`IGNORING goaop/goaop-symfony-bundle` in the output of `composer require`). Run `composer config extra.symfony.allow-contrib true` and `composer recipes:install goaop/goaop-symfony-bundle --force`, or register the bundle by hand as shown in [Installation](#installation).
 - **An aspect does not apply.** Check `debug:advisor --advisor=...` first: it lists the joinpoints a pointcut matches. Then make sure the class lies below an include path and is not loaded before the bundle boots (profiler panel, *classes loaded before weaving*). Vendor code is only woven when its directory is an include path.
 - **"Class ... is missing from the prebuilt AOP cache"** — with `PREBUILT_CACHE` the cache must hold every class below the include paths: the deployment shipped code that the cache was not built for. Run `bin/console cache:clear` (or `cache:warmup`) as part of the deployment, after the code is in place.
 - **Everything works in dev but not in prod.** The production cache is built at deploy time: run `cache:clear` or `cache:warmup`, and keep `PREBUILT_CACHE` on only when the deployment rebuilds the cache. Check that nothing defines `.container.dumper.inline_class_loader: true`, and that `config/preload.php` requires the `_preload.php` of the AOP cache before the container preload file when preloading is enabled.
